@@ -1,9 +1,12 @@
 use clap::Parser;
 use std::{
     fs::File,
-    io::{self, BufRead, BufReader, Lines},
+    io::{self, BufRead, BufReader, Lines, Seek},
     path::PathBuf,
 };
+
+// local
+mod parser;
 
 /// Search for a pattern in a file and display the lines that contain it.
 #[derive(Parser)]
@@ -65,7 +68,20 @@ fn main() {
 
     let file = File::open(path).unwrap();
     let lines = io::BufReader::new(file).lines();
-    let bounds = find_script_bounds(lines);
+    let maybe_bounds = find_script_bounds(lines);
 
-    // TODO: Check and unwrap bounds
+    // Check and unwrap bounds
+    let bounds = match maybe_bounds {
+        Ok(bounds) => bounds,
+        Err(_) => {
+            eprintln!("Malformed script block in file: {:?}", path);
+            std::process::exit(1);
+        }
+    };
+
+    println!("{:?}", bounds);
+
+    // Read data between those bounds
+    // let mut input = File::open(path).unwrap();
+    // input.seek(pos)
 }

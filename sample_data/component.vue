@@ -49,6 +49,9 @@ export default {
         method1() {
             console.log('nothing!')
         },
+        async method2() {
+            console.log('async!')
+        },
     },
 };
 </script>
