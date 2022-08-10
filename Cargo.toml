@@ -7,4 +7,3 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "3.2.16", features = ["derive"] }
-vue-sfc = "0.3.2"

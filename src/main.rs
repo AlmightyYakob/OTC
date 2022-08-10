@@ -1,6 +1,9 @@
 use clap::Parser;
-use std::{fs, path::PathBuf};
-use vue_sfc::{Block, BlockName, Section};
+use std::{
+    fs::File,
+    io::{self, BufRead, BufReader, Lines},
+    path::PathBuf,
+};
 
 /// Search for a pattern in a file and display the lines that contain it.
 #[derive(Parser)]
@@ -18,35 +21,51 @@ struct Cli {
     recursive: bool,
 }
 
+#[derive(Debug, Clone)]
+struct InvalidScriptError;
+
+// Finds the lines at which the script block exists
+fn find_script_bounds(lines: Lines<BufReader<File>>) -> Result<(usize, usize), InvalidScriptError> {
+    let mut start: Option<usize> = None;
+    let mut end: Option<usize> = None;
+
+    for (index, line) in lines.enumerate() {
+        if let Ok(data) = line {
+            if data.contains("<script>") {
+                if start != None {
+                    return Err(InvalidScriptError);
+                }
+
+                start = Some(index);
+            }
+            if data.contains("</script>") {
+                if end != None {
+                    return Err(InvalidScriptError);
+                }
+
+                end = Some(index);
+            }
+        }
+    }
+
+    // Return err if bounds not found
+    if start == None || end == None {
+        return Err(InvalidScriptError);
+    }
+
+    Ok((start.unwrap(), end.unwrap()))
+}
+
 fn main() {
     let args = Cli::parse();
     println!("{:?}", args.paths);
 
     let path = &args.paths[0];
-    let data = fs::read_to_string(path).expect("Unable to read file");
+    // let data = fs::read_to_string(path).expect("Unable to read file");
 
-    let sfc = vue_sfc::parse(&data).unwrap();
-    for section in sfc {
-        match section {
-            Section::Block(Block {
-                name,
-                attributes,
-                content,
-            }) => {
-                println!(
-                    "Got a block named `{}` with {} attributes, content is {} bytes long.",
-                    name,
-                    attributes.len(),
-                    content.len()
-                );
+    let file = File::open(path).unwrap();
+    let lines = io::BufReader::new(file).lines();
+    let bounds = find_script_bounds(lines);
 
-                if name.as_str() == "script" {
-                    println!("{:?}", attributes);
-                }
-            }
-            _ => {
-                panic!("This shouldn't happen")
-            }
-        }
-    }
+    // TODO: Check and unwrap bounds
 }
