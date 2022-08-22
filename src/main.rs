@@ -5,6 +5,13 @@ use nom::{
 };
 use std::{fs, path::PathBuf};
 
+#[macro_use]
+extern crate swc_common;
+extern crate swc_ecma_parser;
+
+// local
+mod parser;
+
 /// Search for a pattern in a file and display the lines that contain it.
 #[derive(Parser)]
 struct Cli {
@@ -59,7 +66,20 @@ fn main() {
             std::process::exit(1);
         }
     };
-    println!("{:?}", script);
+    // println!("{:?}", script);
+    let noderes = parser::default_export_object_from_string(script);
+    // println!("{:?}", noderes.unwrap());
+
+    let node = noderes.unwrap();
+    for prop in node
+        .props
+        .iter()
+        .map(|x| x.as_prop())
+        .filter(|x| x.is_some())
+        .map(|x| x.unwrap())
+    {
+        println!("---> {:?}", prop);
+    }
 
     // Read data between those bounds
     // TODO: Use nom to read each individual part of the defined component

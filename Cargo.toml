@@ -8,3 +8,8 @@ edition = "2021"
 [dependencies]
 clap = { version = "3.2.16", features = ["derive"] }
 nom = "7.1.1"
+swc = "0.213.0"
+swc_common = { version = "0.27.0", features=["tty-emitter"] }
+swc_ecma_ast = "0.90.11"
+swc_ecma_parser = "0.117.0"
+# swc_ecma_transforms_classes = "0.91.5"
