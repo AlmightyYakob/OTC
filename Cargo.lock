@@ -955,6 +955,7 @@ name = "otc"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "nom",
  "rslint_parser",
  "swc",
  "swc_common",

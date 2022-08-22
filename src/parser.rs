@@ -1,11 +1,18 @@
-use rslint_parser::{ast::BracketExpr, parse_text, util, AstNode, SyntaxNodeExt, SyntaxToken};
+use rslint_parser::{
+    ast::BracketExpr, parse_expr, parse_text, util, AstNode, Direction, SyntaxKind, SyntaxNodeExt,
+    SyntaxToken,
+};
 
-fn parse_script(script: &String) {
+pub fn parse_script(script: &String) {
     let parse = parse_text(script, 0);
     // The untyped syntax node of `foo.bar[2]`, the root node is `Script`.
     // let untyped_expr_node = parse.syntax().first_child().unwrap();
 
-    println!("{:?}", parse.syntax().children());
+    let root = parse.syntax();
+    // println!("{:?}", root.children().map(|n| n.readable_stmt_name()));
+    for x in root.children().map(|n| n.).into_iter() {
+        println!("{}", x);
+    }
 
     // // SyntaxNodes can be turned into a nice string representation.
     // println!("{:#?}", untyped_expr_node);

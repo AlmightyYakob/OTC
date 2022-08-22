@@ -1,12 +1,9 @@
 use clap::Parser;
-use std::{
-    fs::File,
-    io::{self, BufRead, BufReader, Lines, Seek},
-    path::PathBuf,
+use nom::{
+    bytes::complete::{take, take_until},
+    IResult,
 };
-
-// local
-mod parser;
+use std::{fs, path::PathBuf};
 
 /// Search for a pattern in a file and display the lines that contain it.
 #[derive(Parser)]
@@ -27,61 +24,49 @@ struct Cli {
 #[derive(Debug, Clone)]
 struct InvalidScriptError;
 
-// Finds the lines at which the script block exists
-fn find_script_bounds(lines: Lines<BufReader<File>>) -> Result<(usize, usize), InvalidScriptError> {
-    let mut start: Option<usize> = None;
-    let mut end: Option<usize> = None;
+fn get_script_contents(path: &PathBuf) -> Result<String, InvalidScriptError> {
+    let pathstr = path.to_str().unwrap();
+    let data =
+        fs::read_to_string(path).expect(format!("Unable to read file: {}", pathstr).as_str());
 
-    for (index, line) in lines.enumerate() {
-        if let Ok(data) = line {
-            if data.contains("<script>") {
-                if start != None {
-                    return Err(InvalidScriptError);
-                }
-
-                start = Some(index);
-            }
-            if data.contains("</script>") {
-                if end != None {
-                    return Err(InvalidScriptError);
-                }
-
-                end = Some(index);
-            }
-        }
-    }
-
-    // Return err if bounds not found
-    if start == None || end == None {
+    let prescriptres: IResult<&str, &str> = take_until("<script>")(data.as_str());
+    if prescriptres.is_err() {
         return Err(InvalidScriptError);
     }
 
-    Ok((start.unwrap(), end.unwrap()))
+    // Take <script>
+    let prescript: IResult<&str, &str> = take(8usize)(prescriptres.unwrap().0);
+    let remaining = prescript.unwrap().0;
+
+    // Grab remaining data
+    let scriptres: IResult<&str, &str> = take_until("</script>")(remaining);
+    if scriptres.is_err() {
+        return Err(InvalidScriptError);
+    }
+
+    return Ok(scriptres.unwrap().1.to_string());
 }
 
 fn main() {
     let args = Cli::parse();
-    println!("{:?}", args.paths);
+    println!("Running on: {:?}", args.paths[0]);
 
     let path = &args.paths[0];
-    // let data = fs::read_to_string(path).expect("Unable to read file");
-
-    let file = File::open(path).unwrap();
-    let lines = io::BufReader::new(file).lines();
-    let maybe_bounds = find_script_bounds(lines);
-
-    // Check and unwrap bounds
-    let bounds = match maybe_bounds {
-        Ok(bounds) => bounds,
-        Err(_) => {
+    let script = match get_script_contents(path) {
+        Ok(data) => data,
+        Err(InvalidScriptError) => {
             eprintln!("Malformed script block in file: {:?}", path);
             std::process::exit(1);
         }
     };
-
-    println!("{:?}", bounds);
+    println!("{:?}", script);
 
     // Read data between those bounds
-    // let mut input = File::open(path).unwrap();
-    // input.seek(pos)
+    // TODO: Use nom to read each individual part of the defined component
+    // inject
+    // data
+    // created
+    // mounted
+    // methods
+    // etc.
 }
