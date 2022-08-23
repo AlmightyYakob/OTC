@@ -10,6 +10,7 @@ extern crate swc_common;
 extern crate swc_ecma_parser;
 
 // local
+mod ast;
 mod parser;
 
 /// Search for a pattern in a file and display the lines that contain it.
@@ -71,15 +72,8 @@ fn main() {
     // println!("{:?}", noderes.unwrap());
 
     let node = noderes.unwrap();
-    for prop in node
-        .props
-        .iter()
-        .map(|x| x.as_prop())
-        .filter(|x| x.is_some())
-        .map(|x| x.unwrap())
-    {
-        println!("---> {:?}", prop);
-    }
+    let vue = ast::create_vue_component(node);
+    println!("{:?}", vue.data);
 
     // Read data between those bounds
     // TODO: Use nom to read each individual part of the defined component
