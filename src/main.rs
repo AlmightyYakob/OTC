@@ -4,6 +4,11 @@ use nom::{
     IResult,
 };
 use std::{fs, path::PathBuf};
+use swc::Compiler;
+use swc_common::SourceMap;
+use swc_common::{collections::AHashMap, sync::Lrc};
+// use swc_ecma_ast::Script;
+// use swc_ecma_codegen::{text_writer::JsWriter, Emitter};
 
 #[macro_use]
 extern crate swc_common;
@@ -73,7 +78,60 @@ fn main() {
 
     let node = noderes.unwrap();
     let vue = ast::create_vue_component(node);
-    println!("{:?}", vue.data);
+    // println!("{:?}", vue.data);
+
+    let stmts = ast::data_to_refs(&vue.data.unwrap());
+    // dbg!("{:?}", stmts);
+
+    let cm: Lrc<SourceMap> = Default::default();
+    let c = Compiler::new(cm.clone());
+    let ast_printed = c.print(
+        &swc_ecma_ast::Program::Script(swc_ecma_ast::Script {
+            span: Default::default(),
+            shebang: None,
+            body: stmts,
+        }),
+        None,
+        Some(PathBuf::from("./output.js")),
+        false,
+        swc_ecma_ast::EsVersion::Es2022,
+        swc::config::SourceMapsConfig::Bool(false),
+        &AHashMap::default(),
+        None,
+        false,
+        None,
+        false,
+        false,
+    );
+
+    println!("{}", ast_printed.unwrap().code);
+
+    // let code = {
+    //     let mut buf = vec![];
+
+    //     {
+    //         let mut emitter = Emitter {
+    //             cfg: swc_ecma_codegen::Config {
+    //                 ..Default::default()
+    //             },
+    //             cm: cm.clone(),
+    //             comments: None,
+    //             wr: JsWriter::new(cm, "\n", &mut buf, None),
+    //         };
+
+    //         emitter
+    //             .emit_script(&Script {
+    //                 shebang: None,
+    //                 span: Default::default(),
+    //                 body: stmts,
+    //             })
+    //             .unwrap();
+    //     }
+
+    //     String::from_utf8_lossy(&buf).to_string()
+    // };
+
+    // fs::write("output.js", &code).unwrap();
 
     // Read data between those bounds
     // TODO: Use nom to read each individual part of the defined component
