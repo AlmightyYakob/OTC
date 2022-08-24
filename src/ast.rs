@@ -2,7 +2,7 @@ use swc_ecma_ast::{KeyValueProp, MethodProp, ObjectLit, Prop, PropName};
 
 // WIP: AST to contain vue component
 #[derive(Debug)]
-pub struct VueComponent {
+pub struct VueOptionsComponent {
     pub components: Option<KeyValueProp>,
     pub props: Option<KeyValueProp>,
     pub data: Option<MethodProp>,
@@ -10,8 +10,8 @@ pub struct VueComponent {
     pub mounted: Option<MethodProp>,
     pub methods: Option<KeyValueProp>,
 }
-impl Default for VueComponent {
-    fn default() -> VueComponent {
+impl Default for VueOptionsComponent {
+    fn default() -> VueOptionsComponent {
         Self {
             components: None,
             props: None,
@@ -23,8 +23,23 @@ impl Default for VueComponent {
     }
 }
 
-pub fn create_vue_component(object: ObjectLit) -> VueComponent {
-    let mut vue = VueComponent::default();
+// WIP: AST to contain vue component
+#[derive(Debug)]
+pub struct VueCompositionComponent {
+    pub props: Option<KeyValueProp>,
+    pub setup: Option<MethodProp>,
+}
+impl Default for VueCompositionComponent {
+    fn default() -> VueCompositionComponent {
+        Self {
+            props: None,
+            setup: None,
+        }
+    }
+}
+
+pub fn create_vue_component(object: ObjectLit) -> VueOptionsComponent {
+    let mut vue = VueOptionsComponent::default();
     for prop in object
         .props
         .into_iter()
