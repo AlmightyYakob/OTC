@@ -11,7 +11,8 @@ nom = "7.1.1"
 string_cache = "0.8.4"
 swc = "0.218.7"
 swc_common = { version = "0.27.0", features=["tty-emitter"] }
+swc_core = { version = "0.7.*", features = ["plugin_transform"] }
 swc_ecma_ast = "0.90.11"
 swc_ecma_codegen = "0.122.0"
 swc_ecma_parser = "0.117.0"
-# swc_ecma_transforms_classes = "0.91.5"
+swc_ecma_visit = "0.76.6"

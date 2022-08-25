@@ -197,3 +197,27 @@ pub fn data_to_refs(data: &MethodProp) -> Vec<Stmt> {
 
     setup_statements
 }
+
+pub fn dummy_statments() -> Vec<Stmt> {
+    return vec![Stmt::Decl(Decl::Var(VarDecl {
+        kind: swc_ecma_ast::VarDeclKind::Const,
+        span: Default::default(),
+        declare: Default::default(),
+        decls: vec![VarDeclarator {
+            definite: false,
+            span: Default::default(),
+            name: Pat::Ident(BindingIdent {
+                id: Ident {
+                    optional: false,
+                    span: Default::default(),
+                    sym: Atom::from("ref"),
+                },
+                type_ann: None,
+            }),
+            init: Some(Box::new(Expr::Object(ObjectLit {
+                span: Default::default(),
+                props: vec![],
+            }))),
+        }],
+    }))];
+}

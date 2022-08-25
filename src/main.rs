@@ -7,8 +7,8 @@ use std::{fs, path::PathBuf};
 use swc::Compiler;
 use swc_common::SourceMap;
 use swc_common::{collections::AHashMap, sync::Lrc};
-// use swc_ecma_ast::Script;
-// use swc_ecma_codegen::{text_writer::JsWriter, Emitter};
+use swc_ecma_ast::Script;
+use swc_ecma_codegen::{text_writer::JsWriter, Emitter};
 
 #[macro_use]
 extern crate swc_common;
@@ -80,58 +80,59 @@ fn main() {
     let vue = ast::create_vue_component(node);
     // println!("{:?}", vue.data);
 
-    let stmts = ast::data_to_refs(&vue.data.unwrap());
+    // let stmts = ast::data_to_refs(&vue.data.unwrap());
+    let stmts = ast::dummy_statments();
     // dbg!("{:?}", stmts);
 
     let cm: Lrc<SourceMap> = Default::default();
-    let c = Compiler::new(cm.clone());
-    let ast_printed = c.print(
-        &swc_ecma_ast::Program::Script(swc_ecma_ast::Script {
-            span: Default::default(),
-            shebang: None,
-            body: stmts,
-        }),
-        None,
-        Some(PathBuf::from("./output.js")),
-        false,
-        swc_ecma_ast::EsVersion::Es2022,
-        swc::config::SourceMapsConfig::Bool(false),
-        &AHashMap::default(),
-        None,
-        false,
-        None,
-        false,
-        false,
-    );
+    // let c = Compiler::new(cm.clone());
+    // let ast_printed = c.print(
+    //     &swc_ecma_ast::Program::Script(swc_ecma_ast::Script {
+    //         span: Default::default(),
+    //         shebang: None,
+    //         body: stmts,
+    //     }),
+    //     None,
+    //     Some(PathBuf::from("./output.js")),
+    //     false,
+    //     swc_ecma_ast::EsVersion::Es2022,
+    //     swc::config::SourceMapsConfig::Bool(false),
+    //     &AHashMap::default(),
+    //     None,
+    //     false,
+    //     None,
+    //     false,
+    //     false,
+    // );
 
-    println!("{}", ast_printed.unwrap().code);
+    // println!("{}", ast_printed.unwrap().code);
 
-    // let code = {
-    //     let mut buf = vec![];
+    let code = {
+        let mut buf = vec![];
 
-    //     {
-    //         let mut emitter = Emitter {
-    //             cfg: swc_ecma_codegen::Config {
-    //                 ..Default::default()
-    //             },
-    //             cm: cm.clone(),
-    //             comments: None,
-    //             wr: JsWriter::new(cm, "\n", &mut buf, None),
-    //         };
+        {
+            let mut emitter = Emitter {
+                cfg: swc_ecma_codegen::Config {
+                    ..Default::default()
+                },
+                cm: cm.clone(),
+                comments: None,
+                wr: JsWriter::new(cm, "\n", &mut buf, None),
+            };
 
-    //         emitter
-    //             .emit_script(&Script {
-    //                 shebang: None,
-    //                 span: Default::default(),
-    //                 body: stmts,
-    //             })
-    //             .unwrap();
-    //     }
+            emitter
+                .emit_script(&Script {
+                    shebang: None,
+                    span: Default::default(),
+                    body: stmts,
+                })
+                .unwrap();
+        }
 
-    //     String::from_utf8_lossy(&buf).to_string()
-    // };
+        String::from_utf8_lossy(&buf).to_string()
+    };
 
-    // fs::write("output.js", &code).unwrap();
+    fs::write("output.js", &code).unwrap();
 
     // Read data between those bounds
     // TODO: Use nom to read each individual part of the defined component
@@ -142,3 +143,40 @@ fn main() {
     // methods
     // etc.
 }
+
+// pub struct TransformVisitor;
+// impl VisitMut for TransformVisitor {
+//     // Implement necessary visit_mut_* methods for actual custom transform.
+//     // A comprehensive list of possible visitor methods can be found here:
+//     // https://rustdoc.swc.rs/swc_ecma_visit/trait.VisitMut.html
+
+//     fn visit_mut_method_prop(&mut self, e: &mut MethodProp) {
+//         e.visit_mut_children_with(self);
+
+//         let ident = e.key.as_ident();
+//         if ident.is_none() || ident.unwrap().sym != Atom::from("data") {
+//             return;
+//         }
+
+//         // This is this way because I don't know how to use rust correctly
+//         e.key = PropName::Ident(Ident {
+//             optional: false,
+//             span: Default::default(),
+//             sym: Atom::from("setup"),
+//         })
+//     }
+// }
+
+// test!(
+//     Default::default(),
+//     |_| as_folder(TransformVisitor),
+//     boo,
+//     // Input codes
+//     r#"export default {
+//         data() {}
+//     };"#,
+//     // Output codes after transformed with plugin
+//     r#"export default {
+//         setup() {}
+//     };"#
+// );
