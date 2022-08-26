@@ -1,13 +1,6 @@
 use string_cache::Atom;
-use swc_common::errors::{ColorConfig, Handler};
-use swc_common::FilePathMapping;
-use swc_common::{sync::Lrc, FileName, SourceMap};
 use swc_core::testing_transform::test;
 use swc_ecma_ast::*;
-use swc_ecma_codegen::text_writer::JsWriter;
-use swc_ecma_codegen::{Config, Emitter};
-use swc_ecma_parser::lexer::Lexer;
-use swc_ecma_parser::{Parser, StringInput, Syntax};
 use swc_ecma_visit::{as_folder, FoldWith, VisitMut, VisitMutWith};
 
 pub fn data_to_refs(stmts: &Vec<Stmt>) -> Vec<Stmt> {
@@ -81,7 +74,7 @@ pub fn data_to_refs(stmts: &Vec<Stmt>) -> Vec<Stmt> {
     setup_statements
 }
 
-struct Visitor;
+pub struct Visitor;
 
 impl VisitMut for Visitor {
     fn visit_mut_module(&mut self, module: &mut Module) {
@@ -123,64 +116,8 @@ impl VisitMut for Visitor {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct CouldNotParseModule;
-
-pub fn parse(source: String, cm: &Lrc<SourceMap>) -> Result<Module, CouldNotParseModule> {
-    // let cm: Lrc<SourceMap> = Default::default();
-    let handler = Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(cm.clone()));
-    let fm = cm.new_source_file(FileName::Custom("test.js".into()), source);
-    let lexer = Lexer::new(
-        // We want to parse ecmascript
-        Syntax::Es(Default::default()),
-        // EsVersion defaults to es5
-        Default::default(),
-        StringInput::from(&*fm),
-        None,
-    );
-
-    let mut parser = Parser::new_from(lexer);
-    for e in parser.take_errors() {
-        e.into_diagnostic(&handler).emit();
-    }
-
-    let parse_res = parser.parse_module().map_err(|e| {
-        // Unrecoverable fatal error occurred
-        e.into_diagnostic(&handler).emit()
-    });
-
-    match parse_res {
-        Ok(module) => Ok(module),
-        Err(_) => Err(CouldNotParseModule),
-    }
-}
-
 pub fn visit_module(module: Module) -> Module {
     module.fold_with(&mut as_folder(Visitor))
-}
-
-pub fn emit(module: &Module, cm: Lrc<SourceMap>) -> String {
-    let mut buf = vec![];
-    {
-        let writer = Box::new(JsWriter::new(cm.clone(), "\n", &mut buf, None));
-        let mut emitter = Emitter {
-            cfg: Config::default(),
-            comments: None,
-            cm: cm.clone(),
-            wr: writer,
-        };
-        emitter.emit_module(&module).unwrap();
-    }
-
-    String::from_utf8(buf).unwrap()
-}
-
-pub fn process(source: String) -> String {
-    let cm = Lrc::new(SourceMap::new(FilePathMapping::empty()));
-    match parse(source, &cm) {
-        Ok(module) => emit(&visit_module(module), cm),
-        Err(_) => "".into(),
-    }
 }
 
 test!(
