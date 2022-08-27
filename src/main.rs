@@ -30,6 +30,7 @@ struct Cli {
     recursive: bool,
 }
 
+// TODO: Use Result/Option
 pub fn process(source: String) -> String {
     let cm = Lrc::new(SourceMap::new(FilePathMapping::empty()));
     match parser::parse_script_js(source, &cm) {

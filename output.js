@@ -14,25 +14,21 @@ export default {
             required: true
         }
     },
-    setup () {
-        const loading = ref(false);
-        const foo = ref(null);
-        const count = ref(0);
-        const headers = ref([
-            {
-                text: 'Name',
-                value: 'name'
-            },
-            {
-                text: 'Identifier',
-                value: 'identifier'
-            }, 
-        ]);
+    data () {
         return {
-            loading,
-            foo,
-            count,
-            headers
+            loading: false,
+            foo: null,
+            count: 0,
+            headers: [
+                {
+                    text: 'Name',
+                    value: 'name'
+                },
+                {
+                    text: 'Identifier',
+                    value: 'identifier'
+                }, 
+            ]
         };
     },
     created () {
