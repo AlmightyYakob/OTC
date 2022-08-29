@@ -61,7 +61,7 @@ pub fn data_to_refs(stmts: &Vec<Stmt>) -> Vec<Stmt> {
     setup_statements
 }
 
-pub fn write_setup(stmts: &Vec<Stmt>) -> MethodProp {
+pub fn write_setup(mut stmts: Vec<Stmt>) -> MethodProp {
     // Declarations that will need to be included in the return statement
     let mut declarations: Vec<Ident> = vec![];
     for stmt in stmts.iter() {
@@ -76,15 +76,13 @@ pub fn write_setup(stmts: &Vec<Stmt>) -> MethodProp {
                 var.decls
                     .iter()
                     .filter_map(|decl| decl.name.as_ident())
-                    .map(|ident| ident.id.clone())
-                    .collect::<Vec<Ident>>(),
+                    .map(|ident| ident.id.clone()),
             ),
             _ => {}
         }
     }
 
-    let mut setup_stmts = stmts.clone();
-    setup_stmts.push(Stmt::Return(ReturnStmt {
+    stmts.push(Stmt::Return(ReturnStmt {
         span: Default::default(),
         arg: Some(Box::new(Expr::Object(ObjectLit {
             span: Default::default(),
@@ -135,7 +133,7 @@ pub fn write_setup(stmts: &Vec<Stmt>) -> MethodProp {
             ],
             body: Some(BlockStmt {
                 span: Default::default(),
-                stmts: setup_stmts,
+                stmts: stmts,
             }),
             decorators: vec![],
         },
@@ -169,13 +167,41 @@ pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultE
         }))));
     }
 
-    // Inject Refs
-    if let Some(refs) = &obj.ref_stmts {
-        let setup = write_setup(refs);
-        export_props.push(PropOrSpread::Prop(Box::new(Prop::Method(setup))));
+    let mut setup_stmts: Vec<Stmt> = vec![];
+
+    // Inject inject
+    if let Some(inject) = &obj.inject_stmts {
+        setup_stmts.extend(inject.clone());
     }
 
-    // TODO: Finish injections
+    // Inject Refs
+    if let Some(refs) = &obj.ref_stmts {
+        setup_stmts.extend(refs.clone());
+    }
+
+    // Inject created
+    if let Some(created) = &obj.created_stmts {
+        setup_stmts.extend(created.clone());
+    }
+
+    // Inject mounted
+    if let Some(_mounted) = &obj.mounted_stmts {
+        // TODO: Inject wrapped mounted statements
+    }
+
+    // Inject methods
+    if let Some(methods) = &obj.method_decls {
+        setup_stmts.extend(
+            methods
+                .iter()
+                .map(|fn_decl| Stmt::Decl(Decl::Fn(fn_decl.clone()))),
+        )
+    }
+
+    // Finally, write setup
+    export_props.push(PropOrSpread::Prop(Box::new(Prop::Method(write_setup(
+        setup_stmts,
+    )))));
 
     // Return entire defineComponent export
     ExportDefaultExpr {

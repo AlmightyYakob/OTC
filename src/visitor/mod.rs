@@ -115,11 +115,33 @@ impl VisitMut for Visitor {
             }
         }
 
+        // Pass through components
+        if let Some(components) = &self.options.components {
+            self.composition.components = Some(components.clone())
+        }
+
+        // Pass through props
+        if let Some(props) = &self.options.props {
+            self.composition.props = Some(props.clone())
+        }
+
         // Transform data to refs
         if let Some(func) = &self.options.data {
             self.composition.ref_stmts =
                 Some(transform::data_to_refs(&func.body.as_ref().unwrap().stmts));
         }
+
+        // TODO: Transform created
+        // if let Some(created) = &self.options.created {
+        //     let mut new_created = created.clone();
+        //     if let Some(block_stmt) = new_created.body {
+        //         // TODO: Convert all uses of this.val to val.value
+        //         // This would likely be done recusively
+        //     }
+        // }
+
+        // TODO: Transform mounted
+        // TODO: Transform methods
 
         // Convert default export
         module.body[default_export_index] = ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(
