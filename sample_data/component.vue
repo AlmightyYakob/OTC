@@ -21,9 +21,11 @@ export default {
     },
     data() {
         return {
+            // loading prop
             loading: false,
             foo: null,
             count: 0,
+            // headers
             headers: [
                 {
                     text: 'Name',
