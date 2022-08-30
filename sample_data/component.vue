@@ -43,7 +43,7 @@ export default {
     },
     async mounted() {
         this.loading = true;
-        this.something()
+        this.method1()
         this.count += 1;
         this.loading = false;
     },

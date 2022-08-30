@@ -25,6 +25,11 @@ export default defineComponent({
                 value: 'identifier'
             }, 
         ]);
+        foo.value = 1;
+        loading.value = true;
+        method1.value();
+        count.value += 1;
+        loading.value = false;
         return {
             loading,
             foo,

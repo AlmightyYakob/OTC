@@ -185,8 +185,8 @@ pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultE
     }
 
     // Inject mounted
-    if let Some(_mounted) = &obj.mounted_stmts {
-        // TODO: Inject wrapped mounted statements
+    if let Some(mounted) = &obj.mounted_stmts {
+        setup_stmts.extend(mounted.clone());
     }
 
     // Inject methods

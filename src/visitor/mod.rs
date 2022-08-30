@@ -1,6 +1,7 @@
+use string_cache::Atom;
 use swc_core::testing_transform::test;
 use swc_ecma_ast::*;
-use swc_ecma_visit::{as_folder, FoldWith, VisitMut};
+use swc_ecma_visit::{as_folder, FoldWith, VisitMut, VisitMutWith};
 
 mod transform;
 mod vue;
@@ -21,9 +22,28 @@ impl Default for Visitor {
         }
     }
 }
+// impl Visitor {
+//     fn
+// }
 
 impl VisitMut for Visitor {
+    // This will convert all uses of `this` to the corresponding refs
+    // TODO: Don't add .value to non-refs
+    fn visit_mut_member_expr(&mut self, member_expr: &mut MemberExpr) {
+        if let (Expr::This(_), MemberProp::Ident(id)) = (&*member_expr.obj, &member_expr.prop) {
+            member_expr.obj = Box::new(Expr::Ident(id.clone()));
+            member_expr.prop = MemberProp::Ident(Ident {
+                optional: false,
+                span: Default::default(),
+                sym: Atom::from("value"),
+            });
+        }
+    }
+
     fn visit_mut_module(&mut self, module: &mut Module) {
+        // Visit children before top level processing
+        module.visit_mut_children_with(self);
+
         // TODO: Place all items aside from default export into pre_component
         // Only visit children of default export
         let maybe_default_export_index = module.body.iter().position(|item| {
@@ -131,16 +151,19 @@ impl VisitMut for Visitor {
                 Some(transform::data_to_refs(&func.body.as_ref().unwrap().stmts));
         }
 
-        // TODO: Transform created
-        // if let Some(created) = &self.options.created {
-        //     let mut new_created = created.clone();
-        //     if let Some(block_stmt) = new_created.body {
-        //         // TODO: Convert all uses of this.val to val.value
-        //         // This would likely be done recusively
-        //     }
-        // }
+        // Transform created statements
+        if let Some(created) = &self.options.created {
+            if let Some(block_stmt) = &created.body {
+                self.composition.created_stmts = Some(block_stmt.stmts.clone());
+            }
+        }
 
-        // TODO: Transform mounted
+        // Transform mounted
+        if let Some(mounted) = &self.options.mounted {
+            if let Some(block_stmt) = &mounted.body {
+                self.composition.mounted_stmts = Some(block_stmt.stmts.clone());
+            }
+        }
         // TODO: Transform methods
 
         // Convert default export
@@ -151,6 +174,7 @@ impl VisitMut for Visitor {
 }
 
 pub fn visit_module(module: Module) -> Module {
+    // dbg!(&module);
     module.fold_with(&mut as_folder(Visitor::default()))
 }
 
