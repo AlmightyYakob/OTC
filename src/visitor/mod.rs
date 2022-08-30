@@ -27,8 +27,21 @@ impl Default for Visitor {
 // }
 
 impl VisitMut for Visitor {
+    // Since functions aren't defined as refs, they must be handled here first
+    fn visit_mut_call_expr(&mut self, call_expr: &mut CallExpr) {
+        if let Callee::Expr(e) = &call_expr.callee {
+            if let Expr::Member(member_expr) = &**e {
+                if let (Expr::This(_), MemberProp::Ident(id)) =
+                    (&*member_expr.obj, &member_expr.prop)
+                {
+                    // Simply replace this.method() with method()
+                    call_expr.callee = Callee::Expr(Box::new(Expr::Ident(id.clone())));
+                }
+            }
+        }
+    }
+
     // This will convert all uses of `this` to the corresponding refs
-    // TODO: Don't add .value to non-refs
     fn visit_mut_member_expr(&mut self, member_expr: &mut MemberExpr) {
         if let (Expr::This(_), MemberProp::Ident(id)) = (&*member_expr.obj, &member_expr.prop) {
             member_expr.obj = Box::new(Expr::Ident(id.clone()));
@@ -125,7 +138,27 @@ impl VisitMut for Visitor {
                                 self.options.props = Some(kv.value.clone());
                             }
                             "methods" => {
-                                self.options.methods = Some(kv.value.clone());
+                                if let Expr::Object(obj) = &*kv.value {
+                                    let mut methods: Vec<FnDecl> = vec![];
+                                    for prop in obj.props.iter() {
+                                        if let PropOrSpread::Prop(boxed_expr) = prop {
+                                            if let Prop::Method(method_expr) = &**boxed_expr {
+                                                if let PropName::Ident(ident) = &method_expr.key {
+                                                    methods.push(FnDecl {
+                                                        ident: ident.clone(),
+                                                        declare: false,
+                                                        function: method_expr.function.clone(),
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Add to component
+                                    if methods.len() > 0 {
+                                        self.options.methods = Some(methods);
+                                    }
+                                }
                             }
                             _ => {}
                         }
@@ -160,11 +193,12 @@ impl VisitMut for Visitor {
 
         // Transform mounted
         if let Some(mounted) = &self.options.mounted {
-            if let Some(block_stmt) = &mounted.body {
-                self.composition.mounted_stmts = Some(block_stmt.stmts.clone());
-            }
+            self.composition.mounted = Some(mounted.clone());
         }
-        // TODO: Transform methods
+        // Transform methods
+        if let Some(methods) = &self.options.methods {
+            self.composition.method_decls = Some(methods.clone());
+        }
 
         // Convert default export
         module.body[default_export_index] = ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(

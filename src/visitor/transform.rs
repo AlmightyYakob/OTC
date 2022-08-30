@@ -184,11 +184,6 @@ pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultE
         setup_stmts.extend(created.clone());
     }
 
-    // Inject mounted
-    if let Some(mounted) = &obj.mounted_stmts {
-        setup_stmts.extend(mounted.clone());
-    }
-
     // Inject methods
     if let Some(methods) = &obj.method_decls {
         setup_stmts.extend(
@@ -196,6 +191,36 @@ pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultE
                 .iter()
                 .map(|fn_decl| Stmt::Decl(Decl::Fn(fn_decl.clone()))),
         )
+    }
+
+    // Inject mounted
+    if let Some(mounted) = &obj.mounted {
+        if let Some(body) = &mounted.body {
+            setup_stmts.push(Stmt::Expr(ExprStmt {
+                span: Default::default(),
+                expr: Box::new(Expr::Call(CallExpr {
+                    span: Default::default(),
+                    type_args: None,
+                    callee: Callee::Expr(Box::new(Expr::Ident(Ident {
+                        optional: false,
+                        span: Default::default(),
+                        sym: Atom::from("onMounted"),
+                    }))),
+                    args: vec![ExprOrSpread {
+                        spread: None,
+                        expr: Box::new(Expr::Arrow(ArrowExpr {
+                            span: Default::default(),
+                            is_async: mounted.is_async,
+                            is_generator: mounted.is_generator,
+                            type_params: None,
+                            return_type: None,
+                            params: vec![],
+                            body: BlockStmtOrExpr::BlockStmt(body.clone()),
+                        })),
+                    }],
+                })),
+            }));
+        }
     }
 
     // Finally, write setup

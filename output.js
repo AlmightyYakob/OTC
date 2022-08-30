@@ -23,18 +23,28 @@ export default defineComponent({
             {
                 text: 'Identifier',
                 value: 'identifier'
-            }, 
+            },
         ]);
         foo.value = 1;
-        loading.value = true;
-        method1.value();
-        count.value += 1;
-        loading.value = false;
+        function method1() {
+            console.log('nothing!');
+        }
+        async function method2() {
+            console.log('async!');
+        }
+        onMounted(async ()=>{
+            loading.value = true;
+            method1();
+            count.value += 1;
+            loading.value = false;
+        });
         return {
             loading,
             foo,
             count,
-            headers
+            headers,
+            method1,
+            method2
         };
     }
 });

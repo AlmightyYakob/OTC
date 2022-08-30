@@ -21,7 +21,7 @@ pub struct OptionsComponent {
     pub mounted: Option<Function>,
 
     // The method object
-    pub methods: Option<Box<Expr>>,
+    pub methods: Option<Vec<FnDecl>>,
 }
 impl Default for OptionsComponent {
     fn default() -> OptionsComponent {
@@ -55,7 +55,7 @@ pub struct CompositionComponent {
     pub created_stmts: Option<Vec<Stmt>>,
 
     // The statements to wrapped with onMounted, gathered from the mounted method
-    pub mounted_stmts: Option<Vec<Stmt>>,
+    pub mounted: Option<Function>,
 
     // The function declarations
     pub method_decls: Option<Vec<FnDecl>>,
@@ -68,7 +68,7 @@ impl Default for CompositionComponent {
             inject_stmts: None,
             ref_stmts: None,
             created_stmts: None,
-            mounted_stmts: None,
+            mounted: None,
             method_decls: None,
         }
     }
