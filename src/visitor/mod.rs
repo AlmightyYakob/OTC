@@ -8,17 +8,19 @@ mod vue;
 
 #[derive(Debug)]
 pub struct Visitor {
-    // All the statements that come before the default export (imports, etc.)
-    pre_component: Option<Vec<ModuleItem>>,
     options: vue::OptionsComponent,
     composition: vue::CompositionComponent,
+
+    // TODO: Set this to false if there is ever some issue parsing vue file,
+    // and skip that file if so
+    valid: bool,
 }
 impl Default for Visitor {
     fn default() -> Visitor {
         Self {
-            pre_component: None,
             options: Default::default(),
             composition: Default::default(),
+            valid: true,
         }
     }
 }

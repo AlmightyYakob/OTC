@@ -41,17 +41,21 @@ pub fn process(source: String) -> String {
 
 fn main() {
     let args = Cli::parse();
-    println!("Running on: {:?}", args.paths[0]);
-
-    let path = &args.paths[0];
-    let script = match parser::parse_vue_script(path) {
-        Ok(data) => data,
-        Err(parser::InvalidScriptError) => {
-            eprintln!("Malformed script block in file: {:?}", path);
-            std::process::exit(1);
+    for path in &args.paths {
+        if path.is_dir() {
+            println!(
+                "Skipping directory {}. Use the -r flag to run on folders.",
+                path.clone().into_os_string().into_string().unwrap()
+            );
+            continue;
         }
-    };
 
-    let res = process(script);
-    fs::write("output.js", &res).unwrap();
+        let script = parser::parse_vue_script(path);
+        if script.is_err() {
+            continue;
+        }
+
+        let res = process(script.unwrap());
+        fs::write("output.js", &res).unwrap();
+    }
 }
