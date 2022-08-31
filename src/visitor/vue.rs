@@ -14,6 +14,9 @@ pub struct OptionsComponent {
     // The data() method
     pub data: Option<Function>,
 
+    // The computed methods
+    pub computed: Option<Vec<FnDecl>>,
+
     // The created() method
     pub created: Option<Function>,
 
@@ -30,6 +33,7 @@ impl Default for OptionsComponent {
             inject: None,
             props: None,
             data: None,
+            computed: None,
             created: None,
             mounted: None,
             methods: None,
@@ -54,6 +58,9 @@ pub struct CompositionComponent {
     // The statements gathered from the created method
     pub created_stmts: Option<Vec<Stmt>>,
 
+    // The statements gathered from the computed block
+    pub computed: Option<Vec<FnDecl>>,
+
     // The statements to wrapped with onMounted, gathered from the mounted method
     pub mounted: Option<Function>,
 
@@ -68,6 +75,7 @@ impl Default for CompositionComponent {
             inject_stmts: None,
             ref_stmts: None,
             created_stmts: None,
+            computed: None,
             mounted: None,
             method_decls: None,
         }

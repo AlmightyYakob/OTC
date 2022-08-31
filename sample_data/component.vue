@@ -38,6 +38,11 @@ export default {
             ],
         };
     },
+    computed: {
+        bar() {
+            return this.foo || 'bar';
+        },
+    },
     created() {
         this.foo = 1;
     },

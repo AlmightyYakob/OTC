@@ -6,7 +6,7 @@
 // Not real
 import ComponentOne from '@/components/ComponentOne.vue';
 import ComponentTwo from '@/components/ComponentTwo.vue';
-import { defineComponent, ref, inject, onCreated } from '@vue/composition-api';
+import { defineComponent, ref, computed, inject } from '@vue/composition-api';
 
 export default defineComponent({
     components: {
@@ -37,6 +37,10 @@ export default defineComponent({
                 value: 'identifier',
             },
         ]);
+
+        const bar = computed(() => {
+            return foo.value || 'bar';
+        });
 
         // Created
         foo.value = 1;

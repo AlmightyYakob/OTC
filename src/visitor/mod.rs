@@ -59,8 +59,6 @@ impl VisitMut for Visitor {
         // Visit children before top level processing
         module.visit_mut_children_with(self);
 
-        // TODO: Place all items aside from default export into pre_component
-        // Only visit children of default export
         let maybe_default_export_index = module.body.iter().position(|item| {
             if !item.is_module_decl() {
                 return false;
@@ -85,17 +83,9 @@ impl VisitMut for Visitor {
         }
         let default_export_index = maybe_default_export_index.unwrap();
 
-        // TODO: Visit entire AST and fill in the Visitor struct.
-        // After above are defined, do the following (in this order)
+        // TODO:
         // * Convert inject into new syntax
-        // * Convert data into refs
-        // * Convert created method into valid vector of statements
-        // * Convert mounted into onMounted call
-        // * Convert methods object into vector of function declarations
-        //
-        // Finally, write all statements into setup and add return statement
 
-        // let object = default_export.unwrap();
         let default_export = module.body[default_export_index]
             .as_module_decl()
             .unwrap()
