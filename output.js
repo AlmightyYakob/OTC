@@ -25,8 +25,12 @@ export default defineComponent({
                 value: 'identifier'
             }, 
         ]);
-        const bar = computed(()=>{
-            return foo.value || 'bar';
+        const bar = computed(()=>foo.value || 'bar');
+        const baz = computed(()=>{
+            if (loading.value) {
+                return 0;
+            }
+            return count.value + 1;
         });
         foo.value = 1;
         function method1() {
@@ -47,6 +51,7 @@ export default defineComponent({
             count,
             headers,
             bar,
+            baz,
             method1,
             method2
         };

@@ -38,8 +38,12 @@ export default defineComponent({
             },
         ]);
 
-        const bar = computed(() => {
-            return foo.value || 'bar';
+        const bar = computed(() => foo.value || 'bar');
+        const baz = computed(() => {
+            if (loading.value) {
+                return 0;
+            }
+            return count.value + 1;
         });
 
         // Created

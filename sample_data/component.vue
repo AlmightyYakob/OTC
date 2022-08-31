@@ -42,6 +42,12 @@ export default {
         bar() {
             return this.foo || 'bar';
         },
+        baz() {
+            if (this.loading) {
+                return 0;
+            }
+            return this.count + 1;
+        }
     },
     created() {
         this.foo = 1;

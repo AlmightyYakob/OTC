@@ -191,7 +191,18 @@ pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultE
                 return None;
             }
 
+            // Optimize return statement if possible
             let body = decl.function.body.as_ref().unwrap();
+            let mut arrow_expr_body = BlockStmtOrExpr::BlockStmt(body.clone());
+            {
+                let stmts = &arrow_expr_body.as_block_stmt().unwrap().stmts;
+                if stmts.len() == 1 {
+                    if let Stmt::Return(r_stmt) = &stmts[0] {
+                        arrow_expr_body = BlockStmtOrExpr::Expr(r_stmt.arg.clone().unwrap())
+                    }
+                }
+            }
+
             Some(Stmt::Decl(Decl::Var(VarDecl {
                 span: Default::default(),
                 declare: false,
@@ -216,7 +227,7 @@ pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultE
                                 type_params: None,
                                 return_type: None,
                                 params: vec![],
-                                body: BlockStmtOrExpr::BlockStmt(body.clone()),
+                                body: arrow_expr_body,
                             })),
                         }],
                     }))),
