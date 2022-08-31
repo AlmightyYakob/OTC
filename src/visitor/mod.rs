@@ -129,6 +129,31 @@ impl VisitMut for Visitor {
                             "props" => {
                                 self.options.props = Some(kv.value.clone());
                             }
+                            "computed" => {
+                                // TODO: Optimize stmts to not include block statement if
+                                // only stmt in function body is single return statement
+                                if let Expr::Object(obj) = &*kv.value {
+                                    let mut computed_decls: Vec<FnDecl> = vec![];
+                                    for prop in obj.props.iter() {
+                                        if let PropOrSpread::Prop(boxed_expr) = prop {
+                                            if let Prop::Method(method_expr) = &**boxed_expr {
+                                                if let PropName::Ident(ident) = &method_expr.key {
+                                                    computed_decls.push(FnDecl {
+                                                        ident: ident.clone(),
+                                                        declare: false,
+                                                        function: method_expr.function.clone(),
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Add to component
+                                    if computed_decls.len() > 0 {
+                                        self.options.computed = Some(computed_decls);
+                                    }
+                                }
+                            }
                             "methods" => {
                                 if let Expr::Object(obj) = &*kv.value {
                                     let mut methods: Vec<FnDecl> = vec![];
@@ -174,6 +199,11 @@ impl VisitMut for Visitor {
         if let Some(func) = &self.options.data {
             self.composition.ref_stmts =
                 Some(transform::data_to_refs(&func.body.as_ref().unwrap().stmts));
+        }
+
+        // Transform computed
+        if let Some(computed_decls) = &self.options.computed {
+            self.composition.computed = Some(computed_decls.clone());
         }
 
         // Transform created statements

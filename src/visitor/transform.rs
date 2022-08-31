@@ -179,6 +179,52 @@ pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultE
         setup_stmts.extend(refs.clone());
     }
 
+    // Inject Computed
+    if let Some(fn_decls) = &obj.computed {
+        let computed_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
+            optional: false,
+            span: Default::default(),
+            sym: Atom::from("computed"),
+        })));
+        setup_stmts.extend(fn_decls.iter().filter_map(|decl| {
+            if decl.function.body.is_none() {
+                return None;
+            }
+
+            let body = decl.function.body.as_ref().unwrap();
+            Some(Stmt::Decl(Decl::Var(VarDecl {
+                span: Default::default(),
+                declare: false,
+                kind: VarDeclKind::Const,
+                decls: vec![VarDeclarator {
+                    span: Default::default(),
+                    definite: false,
+                    name: Pat::Ident(BindingIdent {
+                        type_ann: None,
+                        id: decl.ident.clone(),
+                    }),
+                    init: Some(Box::new(Expr::Call(CallExpr {
+                        span: Default::default(),
+                        callee: computed_callee.clone(),
+                        type_args: None,
+                        args: vec![ExprOrSpread {
+                            spread: None,
+                            expr: Box::new(Expr::Arrow(ArrowExpr {
+                                span: Default::default(),
+                                is_async: false,
+                                is_generator: false,
+                                type_params: None,
+                                return_type: None,
+                                params: vec![],
+                                body: BlockStmtOrExpr::BlockStmt(body.clone()),
+                            })),
+                        }],
+                    }))),
+                }],
+            })))
+        }));
+    }
+
     // Inject created
     if let Some(created) = &obj.created_stmts {
         setup_stmts.extend(created.clone());

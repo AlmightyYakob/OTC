@@ -23,8 +23,11 @@ export default defineComponent({
             {
                 text: 'Identifier',
                 value: 'identifier'
-            },
+            }, 
         ]);
+        const bar = computed(()=>{
+            return foo.value || 'bar';
+        });
         foo.value = 1;
         function method1() {
             console.log('nothing!');
@@ -43,6 +46,7 @@ export default defineComponent({
             foo,
             count,
             headers,
+            bar,
             method1,
             method2
         };
