@@ -40,7 +40,7 @@ export default {
     },
     computed: {
         bar() {
-            return this.foo || 'bar';
+            return this.foo || this.id;
         },
         baz() {
             if (this.loading) {

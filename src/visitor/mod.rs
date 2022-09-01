@@ -81,11 +81,8 @@ impl VisitMut for Visitor {
         if maybe_default_export_index.is_none() {
             return;
         }
+
         let default_export_index = maybe_default_export_index.unwrap();
-
-        // TODO:
-        // * Convert inject into new syntax
-
         let default_export = module.body[default_export_index]
             .as_module_decl()
             .unwrap()
@@ -130,8 +127,6 @@ impl VisitMut for Visitor {
                                 self.options.props = Some(kv.value.clone());
                             }
                             "computed" => {
-                                // TODO: Optimize stmts to not include block statement if
-                                // only stmt in function body is single return statement
                                 if let Expr::Object(obj) = &*kv.value {
                                     let mut computed_decls: Vec<FnDecl> = vec![];
                                     for prop in obj.props.iter() {
@@ -194,6 +189,12 @@ impl VisitMut for Visitor {
         if let Some(props) = &self.options.props {
             self.composition.props = Some(props.clone())
         }
+
+        // TODO:
+        // Transform inject statements
+        // if let Some(injects) = &self.options.inject {
+        //     //
+        // }
 
         // Transform data to refs
         if let Some(func) = &self.options.data {
