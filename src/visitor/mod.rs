@@ -10,89 +10,67 @@ mod vue;
 pub struct Visitor {
     options: vue::OptionsComponent,
     composition: vue::CompositionComponent,
-
     // TODO: Set this to false if there is ever some issue parsing vue file,
     // and skip that file if so
-    valid: bool,
+    // valid: bool,
 }
 impl Default for Visitor {
     fn default() -> Visitor {
         Self {
             options: Default::default(),
             composition: Default::default(),
-            valid: true,
+            // valid: true,
         }
     }
 }
-// impl Visitor {
-//     fn
-// }
+impl Visitor {
+    fn populate_composition(&mut self) {
+        // Pass through components
+        if let Some(components) = &self.options.components {
+            self.composition.components = Some(components.clone())
+        }
 
-impl VisitMut for Visitor {
-    // Since functions aren't defined as refs, they must be handled here first
-    fn visit_mut_call_expr(&mut self, call_expr: &mut CallExpr) {
-        if let Callee::Expr(e) = &call_expr.callee {
-            if let Expr::Member(member_expr) = &**e {
-                if let (Expr::This(_), MemberProp::Ident(id)) =
-                    (&*member_expr.obj, &member_expr.prop)
-                {
-                    // Simply replace this.method() with method()
-                    call_expr.callee = Callee::Expr(Box::new(Expr::Ident(id.clone())));
-                }
+        // Pass through props
+        if let Some(props) = &self.options.props {
+            self.composition.props = Some(props.clone())
+        }
+
+        // TODO:
+        // Transform inject statements
+        // if let Some(injects) = &self.options.inject {
+        //     //
+        // }
+
+        // Transform data to refs
+        if let Some(func) = &self.options.data {
+            self.composition.ref_stmts =
+                Some(transform::data_to_refs(&func.body.as_ref().unwrap().stmts));
+        }
+
+        // Transform computed
+        if let Some(computed_decls) = &self.options.computed {
+            self.composition.computed = Some(computed_decls.clone());
+        }
+
+        // Transform created statements
+        if let Some(created) = &self.options.created {
+            if let Some(block_stmt) = &created.body {
+                self.composition.created_stmts = Some(block_stmt.stmts.clone());
             }
+        }
+
+        // Transform mounted
+        if let Some(mounted) = &self.options.mounted {
+            self.composition.mounted = Some(mounted.clone());
+        }
+        // Transform methods
+        if let Some(methods) = &self.options.methods {
+            self.composition.method_decls = Some(methods.clone());
         }
     }
 
-    // This will convert all uses of `this` to the corresponding refs
-    fn visit_mut_member_expr(&mut self, member_expr: &mut MemberExpr) {
-        if let (Expr::This(_), MemberProp::Ident(id)) = (&*member_expr.obj, &member_expr.prop) {
-            member_expr.obj = Box::new(Expr::Ident(id.clone()));
-            member_expr.prop = MemberProp::Ident(Ident {
-                optional: false,
-                span: Default::default(),
-                sym: Atom::from("value"),
-            });
-        }
-    }
-
-    fn visit_mut_module(&mut self, module: &mut Module) {
-        // Visit children before top level processing
-        module.visit_mut_children_with(self);
-
-        let maybe_default_export_index = module.body.iter().position(|item| {
-            if !item.is_module_decl() {
-                return false;
-            }
-
-            let decl = item.as_module_decl().unwrap();
-            if !decl.is_export_default_expr() {
-                return false;
-            }
-
-            let expr = decl.as_export_default_expr().unwrap();
-            if !expr.expr.is_object() {
-                return false;
-            }
-
-            return true;
-        });
-
-        // Exit if invalid
-        if maybe_default_export_index.is_none() {
-            return;
-        }
-
-        let default_export_index = maybe_default_export_index.unwrap();
-        let default_export = module.body[default_export_index]
-            .as_module_decl()
-            .unwrap()
-            .as_export_default_expr()
-            .unwrap()
-            .expr
-            .as_object()
-            .unwrap();
-
-        for prop in default_export.props.iter() {
+    fn process_default_export(&mut self, object: &ObjectLit) {
+        for prop in object.props.iter() {
             if !prop.is_prop() {
                 continue;
             }
@@ -179,51 +157,72 @@ impl VisitMut for Visitor {
                 _ => {}
             }
         }
+    }
+}
 
-        // Pass through components
-        if let Some(components) = &self.options.components {
-            self.composition.components = Some(components.clone())
-        }
-
-        // Pass through props
-        if let Some(props) = &self.options.props {
-            self.composition.props = Some(props.clone())
-        }
-
-        // TODO:
-        // Transform inject statements
-        // if let Some(injects) = &self.options.inject {
-        //     //
-        // }
-
-        // Transform data to refs
-        if let Some(func) = &self.options.data {
-            self.composition.ref_stmts =
-                Some(transform::data_to_refs(&func.body.as_ref().unwrap().stmts));
-        }
-
-        // Transform computed
-        if let Some(computed_decls) = &self.options.computed {
-            self.composition.computed = Some(computed_decls.clone());
-        }
-
-        // Transform created statements
-        if let Some(created) = &self.options.created {
-            if let Some(block_stmt) = &created.body {
-                self.composition.created_stmts = Some(block_stmt.stmts.clone());
+impl VisitMut for Visitor {
+    // Since functions aren't defined as refs, they must be handled here first
+    fn visit_mut_call_expr(&mut self, call_expr: &mut CallExpr) {
+        if let Callee::Expr(e) = &call_expr.callee {
+            if let Expr::Member(member_expr) = &**e {
+                if let (Expr::This(_), MemberProp::Ident(id)) =
+                    (&*member_expr.obj, &member_expr.prop)
+                {
+                    // Simply replace this.method() with method()
+                    call_expr.callee = Callee::Expr(Box::new(Expr::Ident(id.clone())));
+                }
             }
         }
+    }
 
-        // Transform mounted
-        if let Some(mounted) = &self.options.mounted {
-            self.composition.mounted = Some(mounted.clone());
+    // This will convert all uses of `this` to the corresponding refs
+    fn visit_mut_member_expr(&mut self, member_expr: &mut MemberExpr) {
+        if let (Expr::This(_), MemberProp::Ident(id)) = (&*member_expr.obj, &member_expr.prop) {
+            member_expr.obj = Box::new(Expr::Ident(id.clone()));
+            member_expr.prop = MemberProp::Ident(Ident {
+                optional: false,
+                span: Default::default(),
+                sym: Atom::from("value"),
+            });
         }
-        // Transform methods
-        if let Some(methods) = &self.options.methods {
-            self.composition.method_decls = Some(methods.clone());
+    }
+
+    fn visit_mut_module(&mut self, module: &mut Module) {
+        // Visit children before top level processing
+        module.visit_mut_children_with(self);
+
+        // Find default export
+        let res = module.body.iter().enumerate().find_map(|(index, item)| {
+            if !item.is_module_decl() {
+                return None;
+            }
+
+            let decl = item.as_module_decl().unwrap();
+            if !decl.is_export_default_expr() {
+                return None;
+            }
+
+            let expr = decl.as_export_default_expr().unwrap();
+            if !expr.expr.is_object() {
+                return None;
+            }
+
+            return Some((index, expr.expr.as_object().unwrap()));
+        });
+
+        // Exit if not found
+        if res.is_none() {
+            return;
         }
 
-        // Convert default export
+        // Process default export props
+        let (default_export_index, default_export) = res.unwrap();
+        self.process_default_export(default_export);
+
+        // Populate composition
+        self.populate_composition();
+
+        // Convert
         module.body[default_export_index] = ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(
             transform::write_composition_component(&self.composition),
         ))
