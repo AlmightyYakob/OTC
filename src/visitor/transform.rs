@@ -28,6 +28,7 @@ pub fn data_to_refs(stmts: &Vec<Stmt>) -> Vec<Stmt> {
     let mut ref_names: Vec<Ident> = Vec::new();
     let mut setup_statements: Vec<Stmt> = Vec::new();
     for prop in props.iter() {
+        // TODO: Handle shorthands
         let kv = prop.as_prop().unwrap().as_key_value().unwrap();
         ref_names.push(kv.key.as_ident().unwrap().clone());
 
