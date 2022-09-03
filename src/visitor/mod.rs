@@ -1,9 +1,12 @@
+use std::collections::HashSet;
+
 use string_cache::Atom;
 use swc_core::testing_transform::test;
 use swc_ecma_ast::*;
-use swc_ecma_visit::{as_folder, FoldWith, VisitMut, VisitMutWith};
+use swc_ecma_visit::{as_folder, FoldWith, Visit, VisitMut, VisitMutWith, VisitWith};
 
 mod transform;
+mod utils;
 mod vue;
 
 #[derive(Debug)]
@@ -13,6 +16,7 @@ pub struct Visitor {
     // TODO: Set this to false if there is ever some issue parsing vue file,
     // and skip that file if so
     // valid: bool,
+    props_set: Option<HashSet<String>>,
 }
 impl Default for Visitor {
     fn default() -> Visitor {
@@ -20,6 +24,7 @@ impl Default for Visitor {
             options: Default::default(),
             composition: Default::default(),
             // valid: true,
+            props_set: Default::default(),
         }
     }
 }
@@ -66,6 +71,21 @@ impl Visitor {
         // Transform methods
         if let Some(methods) = &self.options.methods {
             self.composition.method_decls = Some(methods.clone());
+        }
+    }
+
+    fn preprocess_default_export(&mut self, object: &ObjectLit) {
+        // Build set of prop IDs
+        for x in object.props.iter() {
+            if let Some(prop) = x.as_prop() {
+                if let Prop::KeyValue(kv) = &**prop {
+                    if let Some(ident) = kv.key.as_ident() {
+                        if ident.sym.to_string().as_str() == "props" {
+                            self.props_set = utils::prop_set_from_object_lit(&kv.value);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -160,6 +180,18 @@ impl Visitor {
     }
 }
 
+// This is used for analysis before modification
+impl Visit for Visitor {
+    fn visit_module_decl(&mut self, decl: &ModuleDecl) {
+        if let Some(expr) = decl.as_export_default_expr() {
+            if let Some(obj) = expr.expr.as_object() {
+                self.preprocess_default_export(obj);
+            }
+        }
+    }
+}
+
+// This is used for the AST modification
 impl VisitMut for Visitor {
     // Since functions aren't defined as refs, they must be handled here first
     fn visit_mut_call_expr(&mut self, call_expr: &mut CallExpr) {
@@ -178,6 +210,23 @@ impl VisitMut for Visitor {
     // This will convert all uses of `this` to the corresponding refs
     fn visit_mut_member_expr(&mut self, member_expr: &mut MemberExpr) {
         if let (Expr::This(_), MemberProp::Ident(id)) = (&*member_expr.obj, &member_expr.prop) {
+            // Ensure that props are treated special
+            if self.props_set.is_some() {
+                // Replace `this` with `props` if its in the props set
+                let set = self.props_set.as_ref().unwrap();
+                if set.contains(&id.sym.to_string()) {
+                    member_expr.obj = Box::new(Expr::Ident(Ident {
+                        optional: false,
+                        span: Default::default(),
+                        sym: Atom::from("props"),
+                    }));
+
+                    // Exit early
+                    return;
+                }
+            }
+
+            // Convert this.foo to foo.value
             member_expr.obj = Box::new(Expr::Ident(id.clone()));
             member_expr.prop = MemberProp::Ident(Ident {
                 optional: false,
@@ -207,7 +256,7 @@ impl VisitMut for Visitor {
                 return None;
             }
 
-            return Some((index, expr.expr.as_object().unwrap()));
+            return Some((index, expr.expr.as_object().unwrap().clone()));
         });
 
         // Exit if not found
@@ -217,7 +266,7 @@ impl VisitMut for Visitor {
 
         // Process default export props
         let (default_export_index, default_export) = res.unwrap();
-        self.process_default_export(default_export);
+        self.process_default_export(&default_export);
 
         // Populate composition
         self.populate_composition();
@@ -231,7 +280,11 @@ impl VisitMut for Visitor {
 
 pub fn visit_module(module: Module) -> Module {
     // dbg!(&module);
-    module.fold_with(&mut as_folder(Visitor::default()))
+    let mut visitor = Visitor::default();
+    module.visit_with(&mut visitor);
+
+    let mut folder = as_folder(visitor);
+    module.fold_with(&mut folder)
 }
 
 test!(

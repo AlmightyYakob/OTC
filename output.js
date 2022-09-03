@@ -25,7 +25,7 @@ export default defineComponent({
                 value: 'identifier'
             }, 
         ]);
-        const bar = computed(()=>foo.value || id.value);
+        const bar = computed(()=>foo.value || props.id);
         const baz = computed(()=>{
             if (loading.value) {
                 return 0;
