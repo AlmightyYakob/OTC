@@ -33,6 +33,7 @@ export default defineComponent({
             return count.value + 1;
         });
         foo.value = 1;
+        ctx.$emit('something');
         function method1() {
             console.log('nothing!');
         }

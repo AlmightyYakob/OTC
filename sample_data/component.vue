@@ -51,6 +51,7 @@ export default {
     },
     created() {
         this.foo = 1;
+        this.$emit('something');
     },
     async mounted() {
         this.loading = true;

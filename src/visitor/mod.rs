@@ -195,13 +195,22 @@ impl Visit for Visitor {
 impl VisitMut for Visitor {
     // Since functions aren't defined as refs, they must be handled here first
     fn visit_mut_call_expr(&mut self, call_expr: &mut CallExpr) {
-        if let Callee::Expr(e) = &call_expr.callee {
-            if let Expr::Member(member_expr) = &**e {
+        if let Callee::Expr(e) = &mut call_expr.callee {
+            if let Expr::Member(member_expr) = &mut **e {
                 if let (Expr::This(_), MemberProp::Ident(id)) =
                     (&*member_expr.obj, &member_expr.prop)
                 {
-                    // Simply replace this.method() with method()
-                    call_expr.callee = Callee::Expr(Box::new(Expr::Ident(id.clone())));
+                    // If emit, change `this` to `ctx`
+                    if id.sym.to_string() == "$emit" {
+                        member_expr.obj = Box::new(Expr::Ident(Ident {
+                            optional: false,
+                            span: Default::default(),
+                            sym: Atom::from("ctx"),
+                        }));
+                    } else {
+                        // Simply replace this.method() with method()
+                        call_expr.callee = Callee::Expr(Box::new(Expr::Ident(id.clone())));
+                    }
                 }
             }
         }
