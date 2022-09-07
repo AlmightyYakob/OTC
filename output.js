@@ -12,6 +12,7 @@ export default defineComponent({
         }
     },
     setup (props, ctx) {
+        const something = inject('something');
         const loading = ref(false);
         const foo = ref(null);
         const count = ref(0);
@@ -33,20 +34,22 @@ export default defineComponent({
             return count.value + 1;
         });
         foo.value = 1;
-        ctx.$emit('something');
-        function method1() {
-            console.log('nothing!');
+        ctx.$emit('emission');
+        function method1(arg) {
+            console.log(arg);
         }
         async function method2() {
             console.log('async!');
+            something.foo.bar.run();
         }
         onMounted(async ()=>{
             loading.value = true;
-            method1();
+            method1(count.value);
             count.value += 1;
             loading.value = false;
         });
         return {
+            something,
             loading,
             foo,
             count,

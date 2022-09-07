@@ -1,7 +1,55 @@
+use std::collections::HashMap;
+
 use string_cache::Atom;
 use swc_ecma_ast::*;
 
 use super::vue::CompositionComponent;
+
+pub fn transform_inject(injects: &HashMap<String, Str>) -> Vec<Stmt> {
+    let inject_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
+        optional: false,
+        span: Default::default(),
+        sym: Atom::from("inject"),
+    })));
+
+    return injects
+        .iter()
+        .map(|(_, s)| {
+            Stmt::Decl(Decl::Var(VarDecl {
+                span: Default::default(),
+                declare: false,
+                kind: VarDeclKind::Const,
+                decls: vec![VarDeclarator {
+                    definite: false,
+                    span: Default::default(),
+                    name: Pat::Ident(BindingIdent {
+                        type_ann: None,
+                        id: Ident {
+                            span: Default::default(),
+                            sym: s.value.clone(),
+                            optional: false,
+                        },
+                    }),
+                    init: Some(Box::new(Expr::Call(CallExpr {
+                        span: Default::default(),
+                        type_args: None,
+                        callee: inject_callee.clone(),
+                        args: vec![ExprOrSpread {
+                            spread: None,
+                            expr: Box::new(Expr::Lit(Lit::Str(Str {
+                                span: Default::default(),
+                                raw: s.raw.clone(),
+                                value: s.value.clone(),
+                            }))),
+                        }],
+                    }))),
+                }],
+            }))
+        })
+        .collect();
+
+    // TODO: Handle cases besides array literal
+}
 
 pub fn data_to_refs(stmts: &Vec<Stmt>) -> Vec<Stmt> {
     let return_expr = stmts

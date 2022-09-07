@@ -51,20 +51,21 @@ export default {
     },
     created() {
         this.foo = 1;
-        this.$emit('something');
+        this.$emit('emission');
     },
     async mounted() {
         this.loading = true;
-        this.method1()
+        this.method1(this.count)
         this.count += 1;
         this.loading = false;
     },
     methods: {
-        method1() {
-            console.log('nothing!')
+        method1(arg) {
+            console.log(arg)
         },
         async method2() {
             console.log('async!')
+            this.something.foo.bar.run();
         },
     },
 };

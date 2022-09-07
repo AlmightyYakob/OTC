@@ -1,4 +1,7 @@
-use std::collections::HashSet;
+use std::{
+    collections::{HashMap, HashSet},
+    iter::FromIterator,
+};
 
 use string_cache::Atom;
 use swc_core::testing_transform::test;
@@ -9,6 +12,8 @@ mod transform;
 mod utils;
 mod vue;
 
+const SPECIAL_FUNCTIONS: [&str; 1] = ["$emit"];
+
 #[derive(Debug)]
 pub struct Visitor {
     options: vue::OptionsComponent,
@@ -17,6 +22,8 @@ pub struct Visitor {
     // and skip that file if so
     // valid: bool,
     props_set: Option<HashSet<String>>,
+    inject_set: Option<HashMap<String, Str>>,
+    special_functions: HashSet<String>,
 }
 impl Default for Visitor {
     fn default() -> Visitor {
@@ -25,6 +32,8 @@ impl Default for Visitor {
             composition: Default::default(),
             // valid: true,
             props_set: Default::default(),
+            inject_set: Default::default(),
+            special_functions: HashSet::from_iter(SPECIAL_FUNCTIONS.map(|s| s.to_string())),
         }
     }
 }
@@ -40,11 +49,10 @@ impl Visitor {
             self.composition.props = Some(props.clone())
         }
 
-        // TODO:
         // Transform inject statements
-        // if let Some(injects) = &self.options.inject {
-        //     //
-        // }
+        if let Some(injects) = &self.inject_set {
+            self.composition.inject_stmts = Some(transform::transform_inject(injects));
+        }
 
         // Transform data to refs
         if let Some(func) = &self.options.data {
@@ -80,8 +88,14 @@ impl Visitor {
             if let Some(prop) = x.as_prop() {
                 if let Prop::KeyValue(kv) = &**prop {
                     if let Some(ident) = kv.key.as_ident() {
-                        if ident.sym.to_string().as_str() == "props" {
-                            self.props_set = utils::prop_set_from_object_lit(&kv.value);
+                        match ident.sym.to_string().as_str() {
+                            "props" => {
+                                self.props_set = utils::prop_set_from_object_lit(&kv.value);
+                            }
+                            "inject" => {
+                                self.inject_set = utils::inject_set_from_object_lit(&kv.value);
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -200,30 +214,56 @@ impl VisitMut for Visitor {
                 if let (Expr::This(_), MemberProp::Ident(id)) =
                     (&*member_expr.obj, &member_expr.prop)
                 {
-                    // If emit, change `this` to `ctx`
-                    if id.sym.to_string() == "$emit" {
-                        member_expr.obj = Box::new(Expr::Ident(Ident {
-                            optional: false,
-                            span: Default::default(),
-                            sym: Atom::from("ctx"),
-                        }));
-                    } else {
-                        // Simply replace this.method() with method()
+                    // Simply replace this.method() with method(),
+                    // excluding any special functions
+                    if !self.special_functions.contains(&id.sym.to_string()) {
                         call_expr.callee = Callee::Expr(Box::new(Expr::Ident(id.clone())));
                     }
                 }
             }
         }
+
+        // Visit children after top level processing, since calls are
+        // higher up in the AST, and we're removing the `this` expression
+        call_expr.visit_mut_children_with(self);
     }
 
     // This will convert all uses of `this` to the corresponding refs
     fn visit_mut_member_expr(&mut self, member_expr: &mut MemberExpr) {
+        // Visit children before top level processing
+        member_expr.visit_mut_children_with(self);
+
+        // Handle injects, since they convert member expressions to idents
+        // If a `this` expression is found here, it means it's an inject, since
+        // otherwise it would have been transformed deeper within the tree before reaching here
+        if let (Expr::Member(nested_member_expr), MemberProp::Ident(_)) =
+            (&*member_expr.obj, &member_expr.prop)
+        {
+            if let (Expr::This(_), MemberProp::Ident(nested_id)) =
+                (&*nested_member_expr.obj, &nested_member_expr.prop)
+            {
+                member_expr.obj = Box::new(Expr::Ident(Ident {
+                    optional: false,
+                    span: Default::default(),
+                    sym: nested_id.sym.clone(),
+                }))
+            }
+        }
+
+        // Handle most nested case
         if let (Expr::This(_), MemberProp::Ident(id)) = (&*member_expr.obj, &member_expr.prop) {
-            // Ensure that props are treated special
-            if self.props_set.is_some() {
+            // Check if id is an inject
+            if let Some(injects) = &self.inject_set {
+                if injects.contains_key(&id.sym.to_string()) {
+                    // Don't do anything, this is handled higher up the tree
+                    return;
+                }
+            }
+
+            // Handle props
+            if let Some(props) = &self.props_set {
                 // Replace `this` with `props` if its in the props set
-                let set = self.props_set.as_ref().unwrap();
-                if set.contains(&id.sym.to_string()) {
+                if props.contains(&id.sym.to_string()) {
                     member_expr.obj = Box::new(Expr::Ident(Ident {
                         optional: false,
                         span: Default::default(),
@@ -235,7 +275,19 @@ impl VisitMut for Visitor {
                 }
             }
 
-            // Convert this.foo to foo.value
+            // Handle $emit
+            if id.sym.to_string().as_str() == "$emit" {
+                member_expr.obj = Box::new(Expr::Ident(Ident {
+                    optional: false,
+                    span: Default::default(),
+                    sym: Atom::from("ctx"),
+                }));
+
+                // Exit early
+                return;
+            }
+
+            // Default case, treat as ref
             member_expr.obj = Box::new(Expr::Ident(id.clone()));
             member_expr.prop = MemberProp::Ident(Ident {
                 optional: false,

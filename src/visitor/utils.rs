@@ -1,6 +1,40 @@
-use std::collections::HashSet;
+use std::{
+    collections::{HashMap, HashSet},
+    iter::FromIterator,
+};
 
-use swc_ecma_ast::{Expr, Lit, PropName};
+use swc_ecma_ast::{Expr, Lit, PropName, Str};
+
+pub fn inject_set_from_object_lit(expr: &Box<Expr>) -> Option<HashMap<String, Str>> {
+    // Handle array literal of string literal
+    if let Expr::Array(arr) = &**expr {
+        let strings: Vec<(String, Str)> = arr
+            .elems
+            .iter()
+            .filter_map(|elem| {
+                if let Some(expr_or_spread) = elem {
+                    if let Expr::Lit(lit) = &*expr_or_spread.expr {
+                        if let Lit::Str(string_lit) = lit {
+                            return Some((string_lit.value.to_string(), string_lit.clone()));
+                        }
+                    }
+                }
+
+                return None;
+            })
+            .collect();
+
+        // Return if found
+        if strings.len() > 0 {
+            return Some(HashMap::from_iter(strings));
+        }
+    }
+
+    // TODO: Handle aliasing with object literal
+    // TODO: Handle default values
+
+    return None;
+}
 
 pub fn prop_set_from_object_lit(expr: &Box<Expr>) -> Option<HashSet<String>> {
     let mut set: Option<HashSet<String>> = None;
