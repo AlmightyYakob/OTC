@@ -65,6 +65,11 @@ impl Visitor {
             self.composition.computed = Some(computed_decls.clone());
         }
 
+        // Transform watch
+        if let Some(watch_decls) = &self.options.watch {
+            self.composition.watch = Some(watch_decls.clone());
+        }
+
         // Transform created statements
         if let Some(created) = &self.options.created {
             if let Some(block_stmt) = &created.body {
@@ -158,6 +163,29 @@ impl Visitor {
                                     // Add to component
                                     if computed_decls.len() > 0 {
                                         self.options.computed = Some(computed_decls);
+                                    }
+                                }
+                            }
+                            "watch" => {
+                                if let Expr::Object(obj) = &*kv.value {
+                                    let mut watch_decls: Vec<FnDecl> = vec![];
+                                    for prop in obj.props.iter() {
+                                        if let PropOrSpread::Prop(boxed_expr) = prop {
+                                            if let Prop::Method(method_expr) = &**boxed_expr {
+                                                if let PropName::Ident(ident) = &method_expr.key {
+                                                    watch_decls.push(FnDecl {
+                                                        ident: ident.clone(),
+                                                        declare: false,
+                                                        function: method_expr.function.clone(),
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Add to component
+                                    if watch_decls.len() > 0 {
+                                        self.options.watch = Some(watch_decls);
                                     }
                                 }
                             }

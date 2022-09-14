@@ -38,6 +38,14 @@ export default {
             ],
         };
     },
+    watch: {
+        loading(val, oldVal) {
+            if (val === true) {
+                console.log('now loading!');
+                this.foo = 2;
+            }
+        },
+    },
     computed: {
         bar() {
             return this.foo || this.id;

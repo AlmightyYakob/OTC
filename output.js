@@ -33,6 +33,12 @@ export default defineComponent({
             }
             return count.value + 1;
         });
+        watch(loading, (val, oldVal)=>{
+            if (val === true) {
+                console.log('now loading!');
+                foo.value = 2;
+            }
+        });
         foo.value = 1;
         ctx.$emit('emission');
         function method1(arg) {

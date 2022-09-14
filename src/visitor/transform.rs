@@ -285,6 +285,60 @@ pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultE
         }));
     }
 
+    // Inject watch
+    if let Some(watch_decls) = &obj.watch {
+        let computed_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
+            optional: false,
+            span: Default::default(),
+            sym: Atom::from("watch"),
+        })));
+        setup_stmts.extend(watch_decls.iter().filter_map(|decl| {
+            if decl.function.body.is_none() {
+                return None;
+            }
+
+            // Optimize return statement if possible
+            let body = decl.function.body.as_ref().unwrap();
+            let mut arrow_expr_body = BlockStmtOrExpr::BlockStmt(body.clone());
+            {
+                let stmts = &arrow_expr_body.as_block_stmt().unwrap().stmts;
+                if stmts.len() == 1 {
+                    if let Stmt::Return(r_stmt) = &stmts[0] {
+                        arrow_expr_body = BlockStmtOrExpr::Expr(r_stmt.arg.clone().unwrap())
+                    }
+                }
+            }
+
+            let params = decl.function.params.iter().map(|p| p.pat.clone()).collect();
+            Some(Stmt::Expr(ExprStmt {
+                span: Default::default(),
+                expr: Box::new(Expr::Call(CallExpr {
+                    span: Default::default(),
+                    callee: computed_callee.clone(),
+                    type_args: None,
+                    args: vec![
+                        ExprOrSpread {
+                            spread: None,
+                            expr: Box::new(Expr::Ident(decl.ident.clone())),
+                        },
+                        ExprOrSpread {
+                            spread: None,
+                            expr: Box::new(Expr::Arrow(ArrowExpr {
+                                span: Default::default(),
+                                is_async: false,
+                                is_generator: false,
+                                type_params: None,
+                                return_type: None,
+                                params: params,
+                                body: arrow_expr_body,
+                            })),
+                        },
+                    ],
+                })),
+            }))
+        }));
+    }
+
     // Inject created
     if let Some(created) = &obj.created_stmts {
         setup_stmts.extend(created.clone());

@@ -17,6 +17,9 @@ pub struct OptionsComponent {
     // The computed methods
     pub computed: Option<Vec<FnDecl>>,
 
+    // The watch methods
+    pub watch: Option<Vec<FnDecl>>,
+
     // The created() method
     pub created: Option<Function>,
 
@@ -34,6 +37,7 @@ impl Default for OptionsComponent {
             props: None,
             data: None,
             computed: None,
+            watch: None,
             created: None,
             mounted: None,
             methods: None,
@@ -61,6 +65,9 @@ pub struct CompositionComponent {
     // The statements gathered from the computed block
     pub computed: Option<Vec<FnDecl>>,
 
+    // The statements gathered from the watch block
+    pub watch: Option<Vec<FnDecl>>,
+
     // The statements to wrapped with onMounted, gathered from the mounted method
     pub mounted: Option<Function>,
 
@@ -76,6 +83,7 @@ impl Default for CompositionComponent {
             ref_stmts: None,
             created_stmts: None,
             computed: None,
+            watch: None,
             mounted: None,
             method_decls: None,
         }

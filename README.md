@@ -4,9 +4,7 @@ OTC is a tool to convert Vue.js projects written with the Options API, to use th
 
 
 TODO:
-- ~~Don't treat props as refs~~
-- ~~Don't tread \$emit as refs (use ctx.\$emit)~~
-- Support watchers
+- Support watch immediate/deep options
 - Support complex injects
 - Determine when to use reactive vs ref
 - Support functional components
