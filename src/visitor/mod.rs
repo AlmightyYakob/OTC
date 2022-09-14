@@ -8,6 +8,8 @@ use swc_core::testing_transform::test;
 use swc_ecma_ast::*;
 use swc_ecma_visit::{as_folder, FoldWith, Visit, VisitMut, VisitMutWith, VisitWith};
 
+use self::vue::WatchDecl;
+
 mod transform;
 mod utils;
 mod vue;
@@ -168,16 +170,104 @@ impl Visitor {
                             }
                             "watch" => {
                                 if let Expr::Object(obj) = &*kv.value {
-                                    let mut watch_decls: Vec<FnDecl> = vec![];
+                                    let mut watch_decls: Vec<WatchDecl> = vec![];
                                     for prop in obj.props.iter() {
                                         if let PropOrSpread::Prop(boxed_expr) = prop {
+                                            // Method case
                                             if let Prop::Method(method_expr) = &**boxed_expr {
                                                 if let PropName::Ident(ident) = &method_expr.key {
-                                                    watch_decls.push(FnDecl {
+                                                    watch_decls.push(WatchDecl {
                                                         ident: ident.clone(),
-                                                        declare: false,
                                                         function: method_expr.function.clone(),
+                                                        deep: None,
+                                                        immediate: None,
                                                     });
+                                                }
+                                            }
+
+                                            // Complex case
+                                            if let Prop::KeyValue(kv_prop) = &**boxed_expr {
+                                                if let Expr::Object(obj) = &*kv_prop.value {
+                                                    if let PropName::Ident(ident) = &kv.key {
+                                                        let mut function: Option<Function> = None;
+                                                        let mut immediate: Option<Box<Expr>> = None;
+                                                        let mut deep: Option<Box<Expr>> = None;
+
+                                                        // Find handler, deep, and immediate
+                                                        for item in &obj.props {
+                                                            if !item.is_prop() {
+                                                                continue;
+                                                            }
+                                                            let prop = item.as_prop().unwrap();
+
+                                                            match &**prop {
+                                                                // Check for handler method
+                                                                Prop::Method(method) => {
+                                                                    if let PropName::Ident(
+                                                                        inner_ident,
+                                                                    ) = &method.key
+                                                                    {
+                                                                        if inner_ident
+                                                                            .sym
+                                                                            .to_string()
+                                                                            .as_str()
+                                                                            == "handler"
+                                                                        {
+                                                                            function = Some(
+                                                                                method
+                                                                                    .function
+                                                                                    .clone(),
+                                                                            );
+                                                                        }
+                                                                    }
+                                                                }
+                                                                // Check for deep/immediate
+                                                                Prop::KeyValue(inner_kv) => {
+                                                                    if let PropName::Ident(
+                                                                        inner_ident,
+                                                                    ) = &inner_kv.key
+                                                                    {
+                                                                        if inner_ident
+                                                                            .sym
+                                                                            .to_string()
+                                                                            .as_str()
+                                                                            == "deep"
+                                                                        {
+                                                                            deep = Some(
+                                                                                inner_kv
+                                                                                    .value
+                                                                                    .clone(),
+                                                                            );
+                                                                        }
+
+                                                                        if inner_ident
+                                                                            .sym
+                                                                            .to_string()
+                                                                            .as_str()
+                                                                            == "immediate"
+                                                                        {
+                                                                            immediate = Some(
+                                                                                inner_kv
+                                                                                    .value
+                                                                                    .clone(),
+                                                                            );
+                                                                        }
+                                                                    }
+                                                                }
+                                                                _ => {}
+                                                            }
+                                                        }
+
+                                                        // Check
+                                                        if let Some(func) = function {
+                                                            watch_decls.push(WatchDecl {
+                                                                ident: ident.clone(),
+                                                                function: func,
+                                                                deep: deep,
+                                                                immediate: immediate,
+                                                            })
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }

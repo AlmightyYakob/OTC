@@ -309,31 +309,68 @@ pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultE
                 }
             }
 
+            // Create params/args
             let params = decl.function.params.iter().map(|p| p.pat.clone()).collect();
+            let mut args = vec![
+                ExprOrSpread {
+                    spread: None,
+                    expr: Box::new(Expr::Ident(decl.ident.clone())),
+                },
+                ExprOrSpread {
+                    spread: None,
+                    expr: Box::new(Expr::Arrow(ArrowExpr {
+                        span: Default::default(),
+                        is_async: false,
+                        is_generator: false,
+                        type_params: None,
+                        return_type: None,
+                        params,
+                        body: arrow_expr_body,
+                    })),
+                },
+            ];
+
+            // Inject deep/immediatge if needed
+            if decl.deep.is_some() || decl.immediate.is_some() {
+                let mut props = vec![];
+                if let Some(deep) = &decl.deep {
+                    props.push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
+                        key: PropName::Ident(Ident {
+                            optional: false,
+                            span: Default::default(),
+                            sym: Atom::from("deep"),
+                        }),
+                        value: deep.clone(),
+                    }))));
+                }
+                if let Some(immediate) = &decl.immediate {
+                    props.push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
+                        key: PropName::Ident(Ident {
+                            optional: false,
+                            span: Default::default(),
+                            sym: Atom::from("immediate"),
+                        }),
+                        value: immediate.clone(),
+                    }))));
+                }
+
+                // Push argument into vector
+                args.push(ExprOrSpread {
+                    spread: None,
+                    expr: Box::new(Expr::Object(ObjectLit {
+                        span: Default::default(),
+                        props,
+                    })),
+                });
+            }
+
             Some(Stmt::Expr(ExprStmt {
                 span: Default::default(),
                 expr: Box::new(Expr::Call(CallExpr {
                     span: Default::default(),
                     callee: computed_callee.clone(),
                     type_args: None,
-                    args: vec![
-                        ExprOrSpread {
-                            spread: None,
-                            expr: Box::new(Expr::Ident(decl.ident.clone())),
-                        },
-                        ExprOrSpread {
-                            spread: None,
-                            expr: Box::new(Expr::Arrow(ArrowExpr {
-                                span: Default::default(),
-                                is_async: false,
-                                is_generator: false,
-                                type_params: None,
-                                return_type: None,
-                                params: params,
-                                body: arrow_expr_body,
-                            })),
-                        },
-                    ],
+                    args,
                 })),
             }))
         }));

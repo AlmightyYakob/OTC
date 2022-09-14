@@ -39,6 +39,12 @@ export default defineComponent({
                 foo.value = 2;
             }
         });
+        watch(watch, (val)=>{
+            console.log('headers changed', val);
+        }, {
+            deep: true,
+            immediate: true
+        });
         foo.value = 1;
         ctx.$emit('emission');
         function method1(arg) {

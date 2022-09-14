@@ -4,7 +4,6 @@ OTC is a tool to convert Vue.js projects written with the Options API, to use th
 
 
 TODO:
-- Support watch immediate/deep options
 - Support complex injects
 - Determine when to use reactive vs ref
 - Support functional components

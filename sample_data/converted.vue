@@ -38,6 +38,7 @@ export default defineComponent({
             },
         ]);
 
+        // Computed
         const bar = computed(() => foo.value || 'bar');
         const baz = computed(() => {
             if (loading.value) {
@@ -45,6 +46,18 @@ export default defineComponent({
             }
             return count.value + 1;
         });
+
+        // Watchers
+        watch(loading, (val, oldVal) => {
+            if (val === true) {
+                console.log('now loading!');
+                foo.value = 2;
+            }
+        })
+        watch(headers, (val) => {
+            console.log('headers changed', val);
+        },
+        { deep: true, immediate: true });
 
         // Created
         foo.value = 1;

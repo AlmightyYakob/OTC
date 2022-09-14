@@ -45,6 +45,13 @@ export default {
                 this.foo = 2;
             }
         },
+        headers: {
+            handler(val) {
+                console.log('headers changed', val);
+            },
+            immediate: true,
+            deep: true,
+        },
     },
     computed: {
         bar() {

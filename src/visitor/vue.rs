@@ -1,5 +1,13 @@
 use swc_ecma_ast::*;
 
+#[derive(Clone, Debug)]
+pub struct WatchDecl {
+    pub ident: Ident,
+    pub function: Function,
+    pub deep: Option<Box<Expr>>,
+    pub immediate: Option<Box<Expr>>,
+}
+
 #[derive(Debug)]
 pub struct OptionsComponent {
     // The components object
@@ -18,7 +26,7 @@ pub struct OptionsComponent {
     pub computed: Option<Vec<FnDecl>>,
 
     // The watch methods
-    pub watch: Option<Vec<FnDecl>>,
+    pub watch: Option<Vec<WatchDecl>>,
 
     // The created() method
     pub created: Option<Function>,
@@ -66,7 +74,7 @@ pub struct CompositionComponent {
     pub computed: Option<Vec<FnDecl>>,
 
     // The statements gathered from the watch block
-    pub watch: Option<Vec<FnDecl>>,
+    pub watch: Option<Vec<WatchDecl>>,
 
     // The statements to wrapped with onMounted, gathered from the mounted method
     pub mounted: Option<Function>,
