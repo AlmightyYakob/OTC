@@ -39,7 +39,7 @@ export default defineComponent({
                 foo.value = 2;
             }
         });
-        watch(watch, (val)=>{
+        watch(headers, (val)=>{
             console.log('headers changed', val);
         }, {
             deep: true,
