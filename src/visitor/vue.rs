@@ -71,16 +71,16 @@ pub struct CompositionComponent {
     pub created_stmts: Option<Vec<Stmt>>,
 
     // The statements gathered from the computed block
-    pub computed: Option<Vec<FnDecl>>,
+    pub computed: Option<Vec<Stmt>>,
 
     // The statements gathered from the watch block
-    pub watch: Option<Vec<WatchDecl>>,
+    pub watch: Option<Vec<Stmt>>,
 
     // The statements to wrapped with onMounted, gathered from the mounted method
-    pub mounted: Option<Function>,
+    pub mounted: Option<Vec<Stmt>>,
 
     // The function declarations
-    pub method_decls: Option<Vec<FnDecl>>,
+    pub method_decls: Option<Vec<Stmt>>,
 }
 impl Default for CompositionComponent {
     fn default() -> CompositionComponent {

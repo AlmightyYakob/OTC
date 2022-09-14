@@ -3,239 +3,75 @@ use std::collections::HashMap;
 use string_cache::Atom;
 use swc_ecma_ast::*;
 
-use super::vue::CompositionComponent;
+use super::{vue::WatchDecl, Visitor};
 
-pub fn transform_inject(injects: &HashMap<String, Str>) -> Vec<Stmt> {
-    let inject_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
-        optional: false,
-        span: Default::default(),
-        sym: Atom::from("inject"),
-    })));
-
-    return injects
-        .iter()
-        .map(|(_, s)| {
-            Stmt::Decl(Decl::Var(VarDecl {
-                span: Default::default(),
-                declare: false,
-                kind: VarDeclKind::Const,
-                decls: vec![VarDeclarator {
-                    definite: false,
-                    span: Default::default(),
-                    name: Pat::Ident(BindingIdent {
-                        type_ann: None,
-                        id: Ident {
-                            span: Default::default(),
-                            sym: s.value.clone(),
-                            optional: false,
-                        },
-                    }),
-                    init: Some(Box::new(Expr::Call(CallExpr {
-                        span: Default::default(),
-                        type_args: None,
-                        callee: inject_callee.clone(),
-                        args: vec![ExprOrSpread {
-                            spread: None,
-                            expr: Box::new(Expr::Lit(Lit::Str(Str {
-                                span: Default::default(),
-                                raw: s.raw.clone(),
-                                value: s.value.clone(),
-                            }))),
-                        }],
-                    }))),
-                }],
-            }))
-        })
-        .collect();
-
-    // TODO: Handle cases besides array literal
-}
-
-pub fn data_to_refs(stmts: &Vec<Stmt>) -> Vec<Stmt> {
-    let return_expr = stmts
-        .iter()
-        .find(|stmt| stmt.is_return_stmt() && stmt.as_return_stmt().unwrap().arg.is_some())
-        .expect("Data return statement not found!")
-        .as_return_stmt()
-        .unwrap()
-        .arg
-        .as_ref()
-        .unwrap();
-
-    let props = &return_expr
-        .as_object()
-        .expect("Data return expr is not an object!")
-        .props;
-    let ref_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
-        optional: false,
-        span: Default::default(),
-        sym: Atom::from("ref"),
-    })));
-
-    // Create new setup statements
-    let mut ref_names: Vec<Ident> = Vec::new();
-    let mut setup_statements: Vec<Stmt> = Vec::new();
-    for prop in props.iter() {
-        // TODO: Handle shorthands
-        let kv = prop.as_prop().unwrap().as_key_value().unwrap();
-        ref_names.push(kv.key.as_ident().unwrap().clone());
-
-        let ref_value = CallExpr {
-            span: Default::default(),
-            type_args: None,
-            callee: ref_callee.clone(),
-            args: vec![ExprOrSpread {
-                spread: None,
-                expr: kv.value.clone(),
-            }],
-        };
-
-        // Push setup statement into statements
-        setup_statements.push(Stmt::Decl(Decl::Var(VarDecl {
-            kind: swc_ecma_ast::VarDeclKind::Const,
-            span: Default::default(),
-            declare: Default::default(),
-            decls: vec![VarDeclarator {
-                definite: false,
-                span: Default::default(),
-                name: Pat::Ident(BindingIdent {
-                    id: kv.key.as_ident().unwrap().clone(),
-                    type_ann: None,
-                }),
-                init: Some(Box::new(Expr::Call(ref_value))),
-            }],
-        })));
-    }
-
-    setup_statements
-}
-
-pub fn write_setup(mut stmts: Vec<Stmt>) -> MethodProp {
-    // Declarations that will need to be included in the return statement
-    let mut declarations: Vec<Ident> = vec![];
-    for stmt in stmts.iter() {
-        if !stmt.is_decl() {
-            continue;
+impl Visitor {
+    pub fn transform_component(&mut self) {
+        // Pass through components
+        if let Some(components) = &self.options.components {
+            self.composition.components = Some(components.clone())
         }
 
-        match stmt.as_decl().unwrap() {
-            Decl::Class(cls) => declarations.push(cls.ident.clone()),
-            Decl::Fn(func) => declarations.push(func.ident.clone()),
-            Decl::Var(var) => declarations.extend(
-                var.decls
+        // Pass through props
+        if let Some(props) = &self.options.props {
+            self.composition.props = Some(props.clone())
+        }
+
+        // Transform inject statements
+        if let Some(injects) = &self.inject_set {
+            self.composition.inject_stmts = Some(transform_inject(injects));
+        }
+
+        // Transform data to refs
+        if let Some(func) = &self.options.data {
+            self.composition.ref_stmts = Some(transform_data(&func.body.as_ref().unwrap().stmts));
+        }
+
+        // Transform created statements
+        if let Some(created) = &self.options.created {
+            if let Some(block_stmt) = &created.body {
+                self.composition.created_stmts = Some(block_stmt.stmts.clone());
+            }
+        }
+
+        // Transform computed
+        if let Some(computed_decls) = &self.options.computed {
+            self.composition.computed = Some(transform_computed(computed_decls));
+        }
+
+        // Transform watch
+        if let Some(watch_decls) = &self.options.watch {
+            self.composition.watch = Some(transform_watch(watch_decls));
+        }
+
+        // Transform methods
+        if let Some(methods) = &self.options.methods {
+            self.composition.method_decls = Some(
+                methods
                     .iter()
-                    .filter_map(|decl| decl.name.as_ident())
-                    .map(|ident| ident.id.clone()),
-            ),
-            _ => {}
+                    .map(|fn_decl| Stmt::Decl(Decl::Fn(fn_decl.clone())))
+                    .collect(),
+            );
+        }
+
+        // Transform mounted
+        if let Some(mounted) = &self.options.mounted {
+            self.composition.mounted = Some(transform_mounted(mounted));
         }
     }
-
-    stmts.push(Stmt::Return(ReturnStmt {
-        span: Default::default(),
-        arg: Some(Box::new(Expr::Object(ObjectLit {
-            span: Default::default(),
-            props: declarations
-                .into_iter()
-                .map(|ident| PropOrSpread::Prop(Box::new(Prop::Shorthand(ident))))
-                .collect(),
-        }))),
-    }));
-
-    return MethodProp {
-        key: PropName::Ident(Ident {
-            optional: false,
-            span: Default::default(),
-            sym: Atom::from("setup"),
-        }),
-        function: Function {
-            is_async: false,
-            is_generator: false,
-            return_type: None,
-            type_params: None,
-            span: Default::default(),
-            params: vec![
-                Param {
-                    decorators: vec![],
-                    span: Default::default(),
-                    pat: Pat::Ident(BindingIdent {
-                        type_ann: None,
-                        id: Ident {
-                            span: Default::default(),
-                            sym: Atom::from("props"),
-                            optional: false,
-                        },
-                    }),
-                },
-                Param {
-                    decorators: vec![],
-                    span: Default::default(),
-                    pat: Pat::Ident(BindingIdent {
-                        type_ann: None,
-                        id: Ident {
-                            span: Default::default(),
-                            sym: Atom::from("ctx"),
-                            optional: false,
-                        },
-                    }),
-                },
-            ],
-            body: Some(BlockStmt {
-                span: Default::default(),
-                stmts: stmts,
-            }),
-            decorators: vec![],
-        },
-    };
 }
 
-pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultExpr {
-    let mut export_props: Vec<PropOrSpread> = vec![];
+pub fn transform_computed(fn_decls: &Vec<FnDecl>) -> Vec<Stmt> {
+    let computed_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
+        optional: false,
+        span: Default::default(),
+        sym: Atom::from("computed"),
+    })));
 
-    // Inject Components
-    if let Some(components) = &obj.components {
-        export_props.push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-            key: PropName::Ident(Ident {
-                optional: false,
-                span: Default::default(),
-                sym: Atom::from("components"),
-            }),
-            value: components.clone(),
-        }))));
-    }
-
-    // Inject Props
-    if let Some(props) = &obj.props {
-        export_props.push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-            key: PropName::Ident(Ident {
-                optional: false,
-                span: Default::default(),
-                sym: Atom::from("props"),
-            }),
-            value: props.clone(),
-        }))));
-    }
-
-    let mut setup_stmts: Vec<Stmt> = vec![];
-
-    // Inject inject
-    if let Some(inject) = &obj.inject_stmts {
-        setup_stmts.extend(inject.clone());
-    }
-
-    // Inject Refs
-    if let Some(refs) = &obj.ref_stmts {
-        setup_stmts.extend(refs.clone());
-    }
-
-    // Inject Computed
-    if let Some(fn_decls) = &obj.computed {
-        let computed_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
-            optional: false,
-            span: Default::default(),
-            sym: Atom::from("computed"),
-        })));
-        setup_stmts.extend(fn_decls.iter().filter_map(|decl| {
+    // Map and return
+    fn_decls
+        .iter()
+        .filter_map(|decl| {
             if decl.function.body.is_none() {
                 return None;
             }
@@ -282,17 +118,21 @@ pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultE
                     }))),
                 }],
             })))
-        }));
-    }
+        })
+        .collect()
+}
 
-    // Inject watch
-    if let Some(watch_decls) = &obj.watch {
-        let computed_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
-            optional: false,
-            span: Default::default(),
-            sym: Atom::from("watch"),
-        })));
-        setup_stmts.extend(watch_decls.iter().filter_map(|decl| {
+pub fn transform_watch(watch_decls: &Vec<WatchDecl>) -> Vec<Stmt> {
+    let computed_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
+        optional: false,
+        span: Default::default(),
+        sym: Atom::from("watch"),
+    })));
+
+    // Map and return
+    watch_decls
+        .iter()
+        .filter_map(|decl| {
             if decl.function.body.is_none() {
                 return None;
             }
@@ -373,60 +213,18 @@ pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultE
                     args,
                 })),
             }))
-        }));
+        })
+        .collect()
+}
+
+pub fn transform_mounted(mounted: &Function) -> Vec<Stmt> {
+    if mounted.body.is_none() {
+        return vec![];
     }
 
-    // Inject created
-    if let Some(created) = &obj.created_stmts {
-        setup_stmts.extend(created.clone());
-    }
-
-    // Inject methods
-    if let Some(methods) = &obj.method_decls {
-        setup_stmts.extend(
-            methods
-                .iter()
-                .map(|fn_decl| Stmt::Decl(Decl::Fn(fn_decl.clone()))),
-        )
-    }
-
-    // Inject mounted
-    if let Some(mounted) = &obj.mounted {
-        if let Some(body) = &mounted.body {
-            setup_stmts.push(Stmt::Expr(ExprStmt {
-                span: Default::default(),
-                expr: Box::new(Expr::Call(CallExpr {
-                    span: Default::default(),
-                    type_args: None,
-                    callee: Callee::Expr(Box::new(Expr::Ident(Ident {
-                        optional: false,
-                        span: Default::default(),
-                        sym: Atom::from("onMounted"),
-                    }))),
-                    args: vec![ExprOrSpread {
-                        spread: None,
-                        expr: Box::new(Expr::Arrow(ArrowExpr {
-                            span: Default::default(),
-                            is_async: mounted.is_async,
-                            is_generator: mounted.is_generator,
-                            type_params: None,
-                            return_type: None,
-                            params: vec![],
-                            body: BlockStmtOrExpr::BlockStmt(body.clone()),
-                        })),
-                    }],
-                })),
-            }));
-        }
-    }
-
-    // Finally, write setup
-    export_props.push(PropOrSpread::Prop(Box::new(Prop::Method(write_setup(
-        setup_stmts,
-    )))));
-
-    // Return entire defineComponent export
-    ExportDefaultExpr {
+    // Return vec with single onMounted wrawpper
+    let body = mounted.body.as_ref().unwrap();
+    vec![Stmt::Expr(ExprStmt {
         span: Default::default(),
         expr: Box::new(Expr::Call(CallExpr {
             span: Default::default(),
@@ -434,15 +232,125 @@ pub fn write_composition_component(obj: &CompositionComponent) -> ExportDefaultE
             callee: Callee::Expr(Box::new(Expr::Ident(Ident {
                 optional: false,
                 span: Default::default(),
-                sym: Atom::from("defineComponent"),
+                sym: Atom::from("onMounted"),
             }))),
             args: vec![ExprOrSpread {
                 spread: None,
-                expr: Box::new(Expr::Object(ObjectLit {
+                expr: Box::new(Expr::Arrow(ArrowExpr {
                     span: Default::default(),
-                    props: export_props,
+                    is_async: mounted.is_async,
+                    is_generator: mounted.is_generator,
+                    type_params: None,
+                    return_type: None,
+                    params: vec![],
+                    body: BlockStmtOrExpr::BlockStmt(body.clone()),
                 })),
             }],
         })),
+    })]
+}
+
+pub fn transform_inject(injects: &HashMap<String, Str>) -> Vec<Stmt> {
+    let inject_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
+        optional: false,
+        span: Default::default(),
+        sym: Atom::from("inject"),
+    })));
+
+    return injects
+        .iter()
+        .map(|(_, s)| {
+            Stmt::Decl(Decl::Var(VarDecl {
+                span: Default::default(),
+                declare: false,
+                kind: VarDeclKind::Const,
+                decls: vec![VarDeclarator {
+                    definite: false,
+                    span: Default::default(),
+                    name: Pat::Ident(BindingIdent {
+                        type_ann: None,
+                        id: Ident {
+                            span: Default::default(),
+                            sym: s.value.clone(),
+                            optional: false,
+                        },
+                    }),
+                    init: Some(Box::new(Expr::Call(CallExpr {
+                        span: Default::default(),
+                        type_args: None,
+                        callee: inject_callee.clone(),
+                        args: vec![ExprOrSpread {
+                            spread: None,
+                            expr: Box::new(Expr::Lit(Lit::Str(Str {
+                                span: Default::default(),
+                                raw: s.raw.clone(),
+                                value: s.value.clone(),
+                            }))),
+                        }],
+                    }))),
+                }],
+            }))
+        })
+        .collect();
+
+    // TODO: Handle cases besides array literal
+}
+
+pub fn transform_data(stmts: &Vec<Stmt>) -> Vec<Stmt> {
+    let return_expr = stmts
+        .iter()
+        .find(|stmt| stmt.is_return_stmt() && stmt.as_return_stmt().unwrap().arg.is_some())
+        .expect("Data return statement not found!")
+        .as_return_stmt()
+        .unwrap()
+        .arg
+        .as_ref()
+        .unwrap();
+
+    let props = &return_expr
+        .as_object()
+        .expect("Data return expr is not an object!")
+        .props;
+    let ref_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
+        optional: false,
+        span: Default::default(),
+        sym: Atom::from("ref"),
+    })));
+
+    // Create new setup statements
+    let mut ref_names: Vec<Ident> = Vec::new();
+    let mut setup_statements: Vec<Stmt> = Vec::new();
+    for prop in props.iter() {
+        // TODO: Handle shorthands
+        let kv = prop.as_prop().unwrap().as_key_value().unwrap();
+        ref_names.push(kv.key.as_ident().unwrap().clone());
+
+        let ref_value = CallExpr {
+            span: Default::default(),
+            type_args: None,
+            callee: ref_callee.clone(),
+            args: vec![ExprOrSpread {
+                spread: None,
+                expr: kv.value.clone(),
+            }],
+        };
+
+        // Push setup statement into statements
+        setup_statements.push(Stmt::Decl(Decl::Var(VarDecl {
+            kind: swc_ecma_ast::VarDeclKind::Const,
+            span: Default::default(),
+            declare: Default::default(),
+            decls: vec![VarDeclarator {
+                definite: false,
+                span: Default::default(),
+                name: Pat::Ident(BindingIdent {
+                    id: kv.key.as_ident().unwrap().clone(),
+                    type_ann: None,
+                }),
+                init: Some(Box::new(Expr::Call(ref_value))),
+            }],
+        })));
     }
+
+    setup_statements
 }

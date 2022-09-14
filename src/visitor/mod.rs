@@ -12,6 +12,7 @@ mod process;
 mod transform;
 mod utils;
 mod vue;
+mod write;
 
 const SPECIAL_FUNCTIONS: [&str; 1] = ["$emit"];
 
@@ -35,56 +36,6 @@ impl Default for Visitor {
             props_set: Default::default(),
             inject_set: Default::default(),
             special_functions: HashSet::from_iter(SPECIAL_FUNCTIONS.map(|s| s.to_string())),
-        }
-    }
-}
-impl Visitor {
-    fn populate_composition(&mut self) {
-        // Pass through components
-        if let Some(components) = &self.options.components {
-            self.composition.components = Some(components.clone())
-        }
-
-        // Pass through props
-        if let Some(props) = &self.options.props {
-            self.composition.props = Some(props.clone())
-        }
-
-        // Transform inject statements
-        if let Some(injects) = &self.inject_set {
-            self.composition.inject_stmts = Some(transform::transform_inject(injects));
-        }
-
-        // Transform data to refs
-        if let Some(func) = &self.options.data {
-            self.composition.ref_stmts =
-                Some(transform::data_to_refs(&func.body.as_ref().unwrap().stmts));
-        }
-
-        // Transform computed
-        if let Some(computed_decls) = &self.options.computed {
-            self.composition.computed = Some(computed_decls.clone());
-        }
-
-        // Transform watch
-        if let Some(watch_decls) = &self.options.watch {
-            self.composition.watch = Some(watch_decls.clone());
-        }
-
-        // Transform created statements
-        if let Some(created) = &self.options.created {
-            if let Some(block_stmt) = &created.body {
-                self.composition.created_stmts = Some(block_stmt.stmts.clone());
-            }
-        }
-
-        // Transform mounted
-        if let Some(mounted) = &self.options.mounted {
-            self.composition.mounted = Some(mounted.clone());
-        }
-        // Transform methods
-        if let Some(methods) = &self.options.methods {
-            self.composition.method_decls = Some(methods.clone());
         }
     }
 }
@@ -224,12 +175,12 @@ impl VisitMut for Visitor {
         let (default_export_index, default_export) = res.unwrap();
         self.process_default_export(&default_export);
 
-        // Populate composition
-        self.populate_composition();
+        // Run all transformations between options and composition API
+        self.transform_component();
 
         // Convert
         module.body[default_export_index] = ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(
-            transform::write_composition_component(&self.composition),
+            write::write_composition_component(&self.composition),
         ))
     }
 }
