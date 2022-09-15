@@ -12,7 +12,19 @@ export default {
         ComponentOne,
         ComponentTwo,
     },
-    inject: ['something'],
+    inject: {
+        something: 'something',
+        something2: {
+            from: 'something2',
+            default: () => 3,
+        },
+        otherInject: {
+            default: 'some default',
+        },
+        noDefaultInject: {
+            from: 'something3'
+        },
+    },
     props: {
         id: {
             type: String,

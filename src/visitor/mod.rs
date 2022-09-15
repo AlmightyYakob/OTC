@@ -24,7 +24,7 @@ pub struct Visitor {
     // and skip that file if so
     // valid: bool,
     props_set: Option<HashSet<String>>,
-    inject_set: Option<HashMap<String, Str>>,
+    inject_set: Option<HashMap<String, vue::Inject>>,
     special_functions: HashSet<String>,
 }
 impl Default for Visitor {

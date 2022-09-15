@@ -1,6 +1,13 @@
 use swc_ecma_ast::*;
 
 #[derive(Clone, Debug)]
+pub struct Inject {
+    pub name: String,
+    pub from: Box<Expr>,
+    pub default: Option<Box<Expr>>,
+}
+
+#[derive(Clone, Debug)]
 pub struct WatchDecl {
     pub ident: Ident,
     pub function: Function,

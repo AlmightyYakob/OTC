@@ -4,12 +4,12 @@ OTC is a tool to convert Vue.js projects written with the Options API, to use th
 
 
 TODO:
-- Support complex injects
-- Determine when to use reactive vs ref
 - Support global props (`this.$foo` => `ctx.$root.foo`)
-- Support functional components
-- Handle variable shadowing
+- Determine when to use reactive vs ref
+- Handle asyncComputed with `ref` + `watchEffect`
 - Add `<script setup>` support
+- Support functional components
+- Handle variable shadowing?
 
 
 ### Storing data on the visitor

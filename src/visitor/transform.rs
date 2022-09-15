@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use string_cache::Atom;
 use swc_ecma_ast::*;
 
-use super::{vue::WatchDecl, Visitor};
+use super::{
+    vue::{Inject, WatchDecl},
+    Visitor,
+};
 
 impl Visitor {
     pub fn transform_component(&mut self) {
@@ -250,7 +253,7 @@ pub fn transform_mounted(mounted: &Function) -> Vec<Stmt> {
     })]
 }
 
-pub fn transform_inject(injects: &HashMap<String, Str>) -> Vec<Stmt> {
+pub fn transform_inject(injects: &HashMap<String, Inject>) -> Vec<Stmt> {
     let inject_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
         optional: false,
         span: Default::default(),
@@ -259,7 +262,19 @@ pub fn transform_inject(injects: &HashMap<String, Str>) -> Vec<Stmt> {
 
     return injects
         .iter()
-        .map(|(_, s)| {
+        .map(|(_, inj)| {
+            // Setup init arguments
+            let mut init_args: Vec<ExprOrSpread> = vec![ExprOrSpread {
+                spread: None,
+                expr: inj.from.clone(),
+            }];
+            if let Some(default) = &inj.default {
+                init_args.push(ExprOrSpread {
+                    spread: None,
+                    expr: default.clone(),
+                })
+            }
+
             Stmt::Decl(Decl::Var(VarDecl {
                 span: Default::default(),
                 declare: false,
@@ -271,7 +286,7 @@ pub fn transform_inject(injects: &HashMap<String, Str>) -> Vec<Stmt> {
                         type_ann: None,
                         id: Ident {
                             span: Default::default(),
-                            sym: s.value.clone(),
+                            sym: Atom::from(inj.name.clone()),
                             optional: false,
                         },
                     }),
@@ -279,21 +294,12 @@ pub fn transform_inject(injects: &HashMap<String, Str>) -> Vec<Stmt> {
                         span: Default::default(),
                         type_args: None,
                         callee: inject_callee.clone(),
-                        args: vec![ExprOrSpread {
-                            spread: None,
-                            expr: Box::new(Expr::Lit(Lit::Str(Str {
-                                span: Default::default(),
-                                raw: s.raw.clone(),
-                                value: s.value.clone(),
-                            }))),
-                        }],
+                        args: init_args,
                     }))),
                 }],
             }))
         })
         .collect();
-
-    // TODO: Handle cases besides array literal
 }
 
 pub fn transform_data(stmts: &Vec<Stmt>) -> Vec<Stmt> {
