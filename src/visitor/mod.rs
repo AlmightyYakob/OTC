@@ -4,15 +4,15 @@ use std::{
 };
 
 use string_cache::Atom;
-use swc_core::testing_transform::test;
 use swc_ecma_ast::*;
 use swc_ecma_visit::{as_folder, FoldWith, Visit, VisitMut, VisitMutWith, VisitWith};
 
-mod process;
-mod transform;
-mod utils;
-mod vue;
-mod write;
+// Modules
+pub mod process;
+pub mod transform;
+pub mod utils;
+pub mod vue;
+pub mod write;
 
 const SPECIAL_FUNCTIONS: [&str; 1] = ["$emit"];
 
@@ -144,6 +144,9 @@ impl VisitMut for Visitor {
     }
 
     fn visit_mut_module(&mut self, module: &mut Module) {
+        // Preprocess before mutating module
+        module.visit_with(self);
+
         // Visit children before top level processing
         module.visit_mut_children_with(self);
 
@@ -176,6 +179,7 @@ impl VisitMut for Visitor {
         self.process_default_export(&default_export);
 
         // Run all transformations between options and composition API
+        // dbg!(&self.composition);
         self.transform_component();
 
         // Convert
@@ -187,60 +191,5 @@ impl VisitMut for Visitor {
 
 pub fn visit_module(module: Module) -> Module {
     // dbg!(&module);
-    let mut visitor = Visitor::default();
-    module.visit_with(&mut visitor);
-
-    let mut folder = as_folder(visitor);
-    module.fold_with(&mut folder)
+    module.fold_with(&mut as_folder(Visitor::default()))
 }
-
-test!(
-    Default::default(),
-    |_| as_folder(Visitor::default()),
-    data_to_setup,
-    // Input codes
-    r#"export default {
-        data() {
-            return {
-                loading: false,
-                foo: null,
-                count: 0,
-                headers: [
-                    {
-                        text: 'Name',
-                        value: 'name',
-                    },
-                    {
-                        text: 'Identifier',
-                        value: 'identifier',
-                    },
-                ],
-            };
-        },
-    };"#,
-    // Output codes after transformed with plugin
-    r#"export default {
-        setup() {
-            const loading = ref(false);
-            const foo = ref(null);
-            const count = ref(0);
-            const headers = ref([
-                {
-                    text: 'Name',
-                    value: 'name',
-                },
-                {
-                    text: 'Identifier',
-                    value: 'identifier',
-                },
-            ]);
-
-            return {
-                loading,
-                foo,
-                count,
-                headers,
-            }
-        },
-    };"#
-);

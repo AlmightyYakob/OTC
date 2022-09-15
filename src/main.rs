@@ -1,18 +1,8 @@
 use clap::Parser;
 use std::{fs, path::PathBuf};
 
-use swc_common::FilePathMapping;
-use swc_common::{sync::Lrc, SourceMap};
-
-#[macro_use]
-extern crate swc_common;
-extern crate swc_ecma_parser;
-
-// local
-// mod vue_ast;
-mod codegen;
-mod parser;
-mod visitor;
+// Import Lib
+use otc::*;
 
 /// Search for a pattern in a file and display the lines that contain it.
 #[derive(Parser)]
@@ -28,15 +18,6 @@ struct Cli {
         default_value_t = false
     )]
     recursive: bool,
-}
-
-// TODO: Use Result/Option
-pub fn process(source: String) -> String {
-    let cm = Lrc::new(SourceMap::new(FilePathMapping::empty()));
-    match parser::parse_script_js(source, &cm) {
-        Ok(module) => codegen::emit_module(&visitor::visit_module(module), cm),
-        Err(_) => "".into(),
-    }
 }
 
 fn main() {

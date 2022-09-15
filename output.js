@@ -12,9 +12,9 @@ export default defineComponent({
         }
     },
     setup (props, ctx) {
+        const something = inject('something');
         const something2 = inject('something2', ()=>3);
         const otherInject = inject("otherInject", 'some default');
-        const something = inject('something');
         const noDefaultInject = inject('something3');
         const loading = ref(false);
         const foo = ref(null);
@@ -64,9 +64,9 @@ export default defineComponent({
             loading.value = false;
         });
         return {
+            something,
             something2,
             otherInject,
-            something,
             noDefaultInject,
             loading,
             foo,
