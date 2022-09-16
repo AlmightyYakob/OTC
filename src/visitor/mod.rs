@@ -7,6 +7,8 @@ use string_cache::Atom;
 use swc_ecma_ast::*;
 use swc_ecma_visit::{as_folder, FoldWith, Visit, VisitMut, VisitMutWith, VisitWith};
 
+use self::{utils::Ordered, vue::Inject};
+
 // Modules
 pub mod process;
 pub mod transform;
@@ -23,8 +25,12 @@ pub struct Visitor {
     // TODO: Set this to false if there is ever some issue parsing vue file,
     // and skip that file if so
     // valid: bool,
+
+    // Track props
     props_set: Option<HashSet<String>>,
-    inject_set: Option<HashMap<String, vue::Inject>>,
+
+    // Track injects, preserving definition order
+    inject_set: Option<HashMap<String, Ordered<Inject>>>,
     special_functions: HashSet<String>,
 }
 impl Default for Visitor {

@@ -1,6 +1,6 @@
 use swc_ecma_ast::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Inject {
     pub name: String,
     pub from: Box<Expr>,

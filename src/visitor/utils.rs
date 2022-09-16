@@ -8,22 +8,34 @@ use super::vue::Inject;
 use string_cache::Atom;
 use swc_ecma_ast::*;
 
-pub fn inject_set_from_object_lit(expr: &Box<Expr>) -> Option<HashMap<String, Inject>> {
-    let mut values: Vec<Inject> = vec![];
+/** Represents some structure that may want to be ordered */
+#[derive(Debug)]
+pub struct Ordered<T> {
+    pub order: usize,
+    pub value: T,
+}
+
+/** Return the set of injections from an object lit */
+pub fn inject_set_from_object_lit(expr: &Box<Expr>) -> Option<HashMap<String, Ordered<Inject>>> {
+    let mut values: Vec<Ordered<Inject>> = vec![];
 
     // Handle array literal of string literal
     if let Expr::Array(arr) = &**expr {
         values = arr
             .elems
             .iter()
-            .filter_map(|elem| {
+            .enumerate()
+            .filter_map(|(index, elem)| {
                 if let Some(expr_or_spread) = elem {
                     if let Expr::Lit(lit) = &*expr_or_spread.expr {
                         if let Lit::Str(string_lit) = lit {
-                            return Some(Inject {
-                                name: string_lit.value.to_string(),
-                                from: expr_or_spread.expr.clone(),
-                                default: None,
+                            return Some(Ordered {
+                                order: index,
+                                value: Inject {
+                                    name: string_lit.value.to_string(),
+                                    from: expr_or_spread.expr.clone(),
+                                    default: None,
+                                },
                             });
                         }
                     }
@@ -39,7 +51,8 @@ pub fn inject_set_from_object_lit(expr: &Box<Expr>) -> Option<HashMap<String, In
         values = obj
             .props
             .iter()
-            .filter_map(|elem| {
+            .enumerate()
+            .filter_map(|(index, elem)| {
                 if !elem.is_prop() {
                     return None;
                 }
@@ -60,10 +73,13 @@ pub fn inject_set_from_object_lit(expr: &Box<Expr>) -> Option<HashMap<String, In
 
                 // If not object lit, just pass along expression
                 if !value.is_object() {
-                    return Some(Inject {
-                        name,
-                        from: value.clone(),
-                        default: None,
+                    return Some(Ordered {
+                        order: index,
+                        value: Inject {
+                            name,
+                            from: value.clone(),
+                            default: None,
+                        },
                     });
                 }
 
@@ -116,10 +132,13 @@ pub fn inject_set_from_object_lit(expr: &Box<Expr>) -> Option<HashMap<String, In
                         }))),
                     };
 
-                    return Some(Inject {
-                        name,
-                        from,
-                        default,
+                    return Some(Ordered {
+                        order: index,
+                        value: Inject {
+                            name,
+                            from,
+                            default,
+                        },
                     });
                 }
 
@@ -130,9 +149,9 @@ pub fn inject_set_from_object_lit(expr: &Box<Expr>) -> Option<HashMap<String, In
 
     // Return if found
     if values.len() > 0 {
-        let mut map = HashMap::<String, Inject>::new();
+        let mut map = HashMap::new();
         for inject in values.into_iter() {
-            map.insert(inject.name.clone(), inject);
+            map.insert(inject.value.name.clone(), inject);
         }
 
         return Some(map);

@@ -16,6 +16,7 @@ path = "src/lib.rs"
 
 [dependencies]
 clap = { version = "3.2.16", features = ["derive"] }
+itertools = "0.10.4"
 nom = "7.1.1"
 string_cache = "0.8.4"
 swc = "0.218.7"

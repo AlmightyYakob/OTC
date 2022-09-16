@@ -2,7 +2,6 @@ use otc::visitor::Visitor;
 use swc_core::testing_transform::test;
 use swc_ecma_visit::as_folder;
 
-// TODO: Fix inject ordering
 test!(
     Default::default(),
     |_| as_folder(Visitor::default()),

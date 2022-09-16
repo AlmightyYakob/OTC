@@ -1,9 +1,11 @@
+use itertools::Itertools;
 use std::collections::HashMap;
 
 use string_cache::Atom;
 use swc_ecma_ast::*;
 
 use super::{
+    utils::Ordered,
     vue::{Inject, WatchDecl},
     Visitor,
 };
@@ -253,7 +255,7 @@ pub fn transform_mounted(mounted: &Function) -> Vec<Stmt> {
     })]
 }
 
-pub fn transform_inject(injects: &HashMap<String, Inject>) -> Vec<Stmt> {
+pub fn transform_inject(injects: &HashMap<String, Ordered<Inject>>) -> Vec<Stmt> {
     let inject_callee = Callee::Expr(Box::new(Expr::Ident(Ident {
         optional: false,
         span: Default::default(),
@@ -262,7 +264,9 @@ pub fn transform_inject(injects: &HashMap<String, Inject>) -> Vec<Stmt> {
 
     return injects
         .iter()
-        .map(|(_, inj)| {
+        // Sort in order discovered
+        .sorted_by(|a, b| Ord::cmp(&a.1.order, &b.1.order))
+        .map(|(_, Ordered { value: inj, .. })| {
             // Setup init arguments
             let mut init_args: Vec<ExprOrSpread> = vec![ExprOrSpread {
                 spread: None,
