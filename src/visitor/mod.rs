@@ -103,7 +103,7 @@ impl VisitMut for Visitor {
         }
 
         // Handle most nested case
-        if let (Expr::This(_), MemberProp::Ident(id)) = (&*member_expr.obj, &member_expr.prop) {
+        if let (Expr::This(_), MemberProp::Ident(id)) = (&*member_expr.obj, &mut member_expr.prop) {
             // Check if id is an inject
             if let Some(injects) = &self.inject_set {
                 if injects.contains_key(&id.sym.to_string()) {
@@ -128,12 +128,37 @@ impl VisitMut for Visitor {
             }
 
             // Handle $emit
-            if id.sym.to_string().as_str() == "$emit" {
+            let value_string = id.sym.to_string();
+            if value_string.as_str() == "$emit" {
                 member_expr.obj = Box::new(Expr::Ident(Ident {
                     optional: false,
                     span: Default::default(),
                     sym: Atom::from("ctx"),
                 }));
+
+                // Exit early
+                return;
+            }
+
+            // Handle arbitrary global props
+            if value_string.as_str().chars().next().unwrap() == '$' {
+                // Convert this.$foo to ctx.$root.foo
+                member_expr.obj = Box::new(Expr::Member(MemberExpr {
+                    span: Default::default(),
+                    obj: Box::new(Expr::Ident(Ident {
+                        optional: false,
+                        span: Default::default(),
+                        sym: Atom::from("ctx"),
+                    })),
+                    prop: MemberProp::Ident(Ident {
+                        optional: false,
+                        span: Default::default(),
+                        sym: Atom::from("$root"),
+                    }),
+                }));
+
+                // Remove `$` from ident
+                id.sym = Atom::from(&value_string[1..]);
 
                 // Exit early
                 return;
