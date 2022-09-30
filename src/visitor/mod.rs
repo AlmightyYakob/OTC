@@ -4,6 +4,8 @@ use std::{
 };
 
 use string_cache::Atom;
+use swc_common::comments::{Comments, SingleThreadedComments};
+use swc_common::Span;
 use swc_ecma_ast::*;
 use swc_ecma_visit::{as_folder, FoldWith, Visit, VisitMut, VisitMutWith, VisitWith};
 
@@ -18,20 +20,21 @@ pub mod write;
 
 const SPECIAL_FUNCTIONS: [&str; 1] = ["$emit"];
 
-#[derive(Debug)]
 pub struct Visitor {
-    options: vue::OptionsComponent,
-    composition: vue::CompositionComponent,
+    pub options: vue::OptionsComponent,
+    pub composition: vue::CompositionComponent,
     // TODO: Set this to false if there is ever some issue parsing vue file,
     // and skip that file if so
     // valid: bool,
 
     // Track props
-    props_set: Option<HashSet<String>>,
+    pub props_set: Option<HashSet<String>>,
 
     // Track injects, preserving definition order
-    inject_set: Option<HashMap<String, Ordered<Inject>>>,
-    special_functions: HashSet<String>,
+    pub inject_set: Option<HashMap<String, Ordered<Inject>>>,
+    pub special_functions: HashSet<String>,
+    // Comments
+    pub comments: SingleThreadedComments,
 }
 impl Default for Visitor {
     fn default() -> Visitor {
@@ -42,15 +45,23 @@ impl Default for Visitor {
             props_set: Default::default(),
             inject_set: Default::default(),
             special_functions: HashSet::from_iter(SPECIAL_FUNCTIONS.map(|s| s.to_string())),
+            comments: Default::default(),
         }
     }
 }
 
 // This is used for analysis before modification
 impl Visit for Visitor {
+    // fn visit_span(&mut self, span: &Span) {
+    //     dbg!();
+    // }
+
     fn visit_module_decl(&mut self, decl: &ModuleDecl) {
+        decl.visit_children_with(self);
+
         if let Some(expr) = decl.as_export_default_expr() {
             if let Some(obj) = expr.expr.as_object() {
+                // dbg!(self.comments.get_leading(obj.span.lo));
                 self.preprocess_default_export(obj);
             }
         }

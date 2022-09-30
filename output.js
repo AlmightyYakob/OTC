@@ -1,3 +1,4 @@
+// Not real
 import ComponentOne from '@/components/ComponentOne.vue';
 import ComponentTwo from '@/components/ComponentTwo.vue';
 export default defineComponent({
@@ -16,10 +17,12 @@ export default defineComponent({
         const something2 = inject('something2', ()=>3);
         const otherInject = inject("otherInject", 'some default');
         const noDefaultInject = inject('something3');
-        const loading = ref(false);
+        const // loading prop
+        loading = ref(false);
         const foo = ref(null);
         const count = ref(0);
-        const headers = ref([
+        const // headers
+        headers = ref([
             {
                 text: 'Name',
                 value: 'name'

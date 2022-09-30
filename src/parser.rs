@@ -5,7 +5,10 @@ use nom::{
     bytes::complete::{take, take_until},
     IResult,
 };
-use swc_common::errors::{ColorConfig, Handler};
+use swc_common::{
+    comments::SingleThreadedComments,
+    errors::{ColorConfig, Handler},
+};
 use swc_common::{sync::Lrc, FileName, SourceMap};
 use swc_ecma_ast::Module;
 use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
@@ -38,16 +41,21 @@ pub fn parse_vue_script(path: &PathBuf) -> Result<String, InvalidScriptError> {
 
 #[derive(Debug, Clone)]
 pub struct CouldNotParseModule;
-pub fn parse_script_js(source: String, cm: &Lrc<SourceMap>) -> Result<Module, CouldNotParseModule> {
+pub fn parse_script_js(
+    source: String,
+    cm: &Lrc<SourceMap>,
+) -> Result<(Module, SingleThreadedComments), CouldNotParseModule> {
     let handler = Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(cm.clone()));
     let fm = cm.new_source_file(FileName::Custom("test.js".into()), source);
+
+    let comments = SingleThreadedComments::default();
     let lexer = Lexer::new(
         // We want to parse ecmascript
         Syntax::Es(Default::default()),
         // EsVersion defaults to es5
         Default::default(),
         StringInput::from(&*fm),
-        None,
+        Some(&comments),
     );
 
     let mut parser = Parser::new_from(lexer);
@@ -61,7 +69,7 @@ pub fn parse_script_js(source: String, cm: &Lrc<SourceMap>) -> Result<Module, Co
     });
 
     match parse_res {
-        Ok(module) => Ok(module),
+        Ok(module) => Ok((module, comments)),
         Err(_) => Err(CouldNotParseModule),
     }
 }
