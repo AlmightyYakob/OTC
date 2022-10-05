@@ -328,22 +328,48 @@ pub fn transform_data(stmts: &Vec<Stmt>) -> Vec<Stmt> {
     })));
 
     // Create new setup statements
-    let mut ref_names: Vec<Ident> = Vec::new();
     let mut setup_statements: Vec<Stmt> = Vec::new();
-    for prop in props.iter() {
-        // TODO: Handle shorthands
-        let kv = prop.as_prop().unwrap().as_key_value().unwrap();
-        ref_names.push(kv.key.as_ident().unwrap().clone());
-
-        let ref_value = CallExpr {
-            span: Default::default(),
-            type_args: None,
-            callee: ref_callee.clone(),
-            args: vec![ExprOrSpread {
-                spread: None,
-                expr: kv.value.clone(),
-            }],
+    for item in props.iter() {
+        let prop = item.as_prop().unwrap();
+        let maybe_ref_value: Option<(Ident, CallExpr)> = match &**prop {
+            Prop::KeyValue(kv) => Some((
+                kv.key.as_ident().unwrap().clone(),
+                CallExpr {
+                    span: Default::default(),
+                    type_args: None,
+                    callee: ref_callee.clone(),
+                    args: vec![ExprOrSpread {
+                        spread: None,
+                        expr: kv.value.clone(),
+                    }],
+                },
+            )),
+            // TODO: Handle shorthands
+            // Prop::Shorthand(_shorthand) => {
+            //     let new_id = shorthand.sym.to_string()
+            //         Some((
+            //         shorthand.clone(),
+            //         CallExpr {
+            //             span: Default::default(),
+            //             type_args: None,
+            //             callee: ref_callee.clone(),
+            //             args: vec![ExprOrSpread {
+            //                 spread: None,
+            //                 expr: Box::new(Expr::Ident(shorthand.clone())),
+            //             }],
+            //         },
+            //     ))
+            // }
+            _ => None,
         };
+
+        // Skip if not valid
+        if maybe_ref_value.is_none() {
+            continue;
+        }
+
+        // ID is the var name, call_expr is the call to ref that wraps the expression
+        let (id, call_expr) = maybe_ref_value.unwrap();
 
         // Push setup statement into statements
         setup_statements.push(Stmt::Decl(Decl::Var(VarDecl {
@@ -353,11 +379,8 @@ pub fn transform_data(stmts: &Vec<Stmt>) -> Vec<Stmt> {
             decls: vec![VarDeclarator {
                 definite: false,
                 span: Default::default(),
-                name: Pat::Ident(BindingIdent {
-                    id: kv.key.as_ident().unwrap().clone(),
-                    type_ann: None,
-                }),
-                init: Some(Box::new(Expr::Call(ref_value))),
+                name: Pat::Ident(BindingIdent { id, type_ann: None }),
+                init: Some(Box::new(Expr::Call(call_expr))),
             }],
         })));
     }

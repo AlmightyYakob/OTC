@@ -1,5 +1,8 @@
 import ComponentOne from '@/components/ComponentOne.vue';
 import ComponentTwo from '@/components/ComponentTwo.vue';
+const test = [
+    'a'
+];
 export default defineComponent({
     components: {
         ComponentOne,

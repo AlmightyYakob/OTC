@@ -7,6 +7,8 @@
 import ComponentOne from '@/components/ComponentOne.vue';
 import ComponentTwo from '@/components/ComponentTwo.vue';
 
+const test = ['a'];
+
 export default {
     components: {
         ComponentOne,
@@ -48,6 +50,7 @@ export default {
                     value: 'identifier',
                 },
             ],
+            test,
         };
     },
     watch: {
